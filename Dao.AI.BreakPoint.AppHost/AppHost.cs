@@ -3,14 +3,16 @@ var builder = DistributedApplication.CreateBuilder(args);
 var mysql = builder.AddMySql("mysql")
     .WithLifetime(ContainerLifetime.Persistent);
 
-var breakpointdb = mysql.AddDatabase("BreakPointDb");
+var breakPointDb = mysql.AddDatabase("BreakPointDb");
 
-var apiService = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("apiservice")
-    .WithReference(breakpointdb)
+var breakPointApi = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("breakPointApi")
+    .WithReference(breakPointDb)
+    .WaitFor(breakPointDb)
     .WithHttpHealthCheck("/health");
 
-var webApp = builder.AddNpmApp("webapp", "../Dao.AI.BreakPoint.Web")
-    .WithReference(apiService)
+builder.AddNpmApp("webapp", "../Dao.AI.BreakPoint.Web")
+    .WithReference(breakPointApi)
+    .WaitFor(breakPointApi)
     .WithHttpEndpoint(env: "PORT")
     .WithExternalHttpEndpoints()
     .PublishAsDockerFile();
