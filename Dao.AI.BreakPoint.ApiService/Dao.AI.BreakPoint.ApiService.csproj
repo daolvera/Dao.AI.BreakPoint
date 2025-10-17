@@ -8,9 +8,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.ServiceDefaults\Dao.AI.BreakPoint.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Dao.AI.BreakPoint.Data\Dao.AI.BreakPoint.Data.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Pomelo.EntityFrameworkCore.MySql" Version="9.5.1" />
   </ItemGroup>
 
 </Project>

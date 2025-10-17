@@ -12,12 +12,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.ApiService\Dao.AI.BreakPoint.ApiService.csproj" />
-    <ProjectReference Include="..\Dao.AI.BreakPoint.Web\Dao.AI.BreakPoint.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" Version="9.5.0" />
     <PackageReference Include="Aspire.Hosting.MySql" Version="9.5.1" />
+    <PackageReference Include="Aspire.Hosting.NodeJs" Version="9.5.0" />
   </ItemGroup>
 
 </Project>
