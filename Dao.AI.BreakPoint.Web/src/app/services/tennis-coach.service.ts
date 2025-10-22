@@ -2,14 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-
-export interface CoachingSession {
-  id: string;
-  playerName: string;
-  date: Date;
-  drillsCompleted: number;
-  performanceScore: number;
-}
+import { CoachingSession } from '../models/coaching-session';
 
 @Injectable({
   providedIn: 'root'
@@ -19,7 +12,6 @@ export class TennisCoachService {
 
   constructor(private http: HttpClient) { }
 
-  // Example API calls for your tennis AI coach
   getCoachingSessions(): Observable<CoachingSession[]> {
     return this.http.get<CoachingSession[]>(`${this.apiUrl}/coaching-sessions`);
   }
