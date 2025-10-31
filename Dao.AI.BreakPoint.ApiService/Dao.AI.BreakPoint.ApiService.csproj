@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.ServiceDefaults\Dao.AI.BreakPoint.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.Data\Dao.AI.BreakPoint.Data.csproj" />
+    <ProjectReference Include="..\Dao.AI.BreakPoint.Services\Dao.AI.BreakPoint.Services.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,6 @@
-using Dao.AI.BreakPoint.Data;
-using Dao.AI.BreakPoint.Data.Models;
-using Microsoft.EntityFrameworkCore;
+using Dao.AI.BreakPoint.Services;
+using Dao.AI.BreakPoint.Services.DTOs;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Dao.AI.BreakPoint.ApiService.Endpoints;
 
@@ -14,24 +14,30 @@ public static class PlayerEndpoints
         group.MapGet("/", GetAllPlayers)
             .WithName(nameof(GetAllPlayers))
             .WithSummary("Get all players")
-            .Produces<List<Player>>();
+            .Produces<ICollection<PlayerDto>>();
 
         group.MapGet("/{id:int}", GetPlayerById)
             .WithName(nameof(GetPlayerById))
             .WithSummary("Get player by ID")
-            .Produces<Player>()
+            .Produces<PlayerDto>()
+            .Produces(404);
+
+        group.MapGet("/{id:int}/details", GetPlayerWithStatsById)
+            .WithName(nameof(GetPlayerWithStatsById))
+            .WithSummary("Get player by ID with enhanced stats")
+            .Produces<PlayerWithStatsDto>()
             .Produces(404);
 
         group.MapPost("/", CreatePlayer)
             .WithName(nameof(CreatePlayer))
             .WithSummary("Create a new player")
-            .Produces<Player>(201)
+            .Produces<int>(201)
             .Produces(400);
 
         group.MapPut("/{id:int}", UpdatePlayer)
             .WithName(nameof(UpdatePlayer))
             .WithSummary("Update an existing player")
-            .Produces<Player>()
+            .Produces<bool>()
             .Produces(404)
             .Produces(400);
 
@@ -44,65 +50,54 @@ public static class PlayerEndpoints
         return endpoints;
     }
 
-    private static async Task<IResult> GetAllPlayers(BreakPointDbContext context)
+    private static async Task<IResult> GetAllPlayers(
+        [FromServices] IPlayerService playerService
+        )
     {
-        var players = await context.Players.ToListAsync();
-        return Results.Ok(players);
+        return Results.Ok(await playerService.GetAllAsync());
     }
 
-    private static async Task<IResult> GetPlayerById(int id, BreakPointDbContext context)
+    private static async Task<IResult> GetPlayerById(
+        [FromServices] IPlayerService playerService,
+        [FromRoute] int id)
     {
-        var player = await context.Players.FindAsync(id);
+        var player = await playerService.GetByIdAsync(id);
         return player is not null ? Results.Ok(player) : Results.NotFound();
     }
 
-    private static async Task<IResult> CreatePlayer(Player player, BreakPointDbContext context)
+    private static async Task<IResult> GetPlayerWithStatsById(
+        [FromServices] IPlayerService playerService,
+        [FromRoute] int id)
     {
-        if (string.IsNullOrWhiteSpace(player.Email))
-        {
-            return Results.BadRequest("Email is required");
-        }
-
-        player.CreatedAt = DateTime.UtcNow;
-        player.UpdatedAt = DateTime.UtcNow;
-
-        context.Players.Add(player);
-        await context.SaveChangesAsync();
-
-        return Results.Created($"/api/players/{player.Id}", player);
+        PlayerWithStatsDto? player = await playerService.GetWithStatsAsync(id);
+        return player is not null ? Results.Ok(player) : Results.NotFound();
     }
 
-    private static async Task<IResult> UpdatePlayer(int id, Player updatedPlayer, BreakPointDbContext context)
+    private static async Task<IResult> CreatePlayer(
+        [FromServices] IPlayerService playerService,
+        [FromServices] IAuthenticationService authService,
+        [FromBody] CreatePlayerDto createPlayerDto)
     {
-        var player = await context.Players.FindAsync(id);
-        if (player is null)
-        {
-            return Results.NotFound();
-        }
+        var playerId = await playerService.CreateAsync(createPlayerDto, await authService.GetAppUserId());
 
-        if (string.IsNullOrWhiteSpace(updatedPlayer.Email))
-        {
-            return Results.BadRequest("Email is required");
-        }
-
-        player.Email = updatedPlayer.Email;
-        player.UpdatedAt = DateTime.UtcNow;
-
-        await context.SaveChangesAsync();
-
-        return Results.Ok(player);
+        return Results.Created($"/api/players/{playerId}", createPlayerDto);
     }
 
-    private static async Task<IResult> DeletePlayer(int id, BreakPointDbContext context)
+    private static async Task<IResult> UpdatePlayer(
+        [FromServices] IPlayerService playerService,
+        [FromServices] IAuthenticationService authService,
+        [FromRoute] int id,
+        [FromBody] CreatePlayerDto updatedPlayer)
     {
-        var player = await context.Players.FindAsync(id);
-        if (player is null)
-        {
-            return Results.NotFound();
-        }
+        return Results.Ok(await playerService.UpdateAsync(id, updatedPlayer, await authService.GetAppUserId()));
+    }
 
-        context.Players.Remove(player);
-        await context.SaveChangesAsync();
+    // TODO: implement role based access to do this
+    private static async Task<IResult> DeletePlayer(
+        [FromServices] IPlayerService playerService,
+        [FromRoute] int id)
+    {
+        await playerService.DeleteAsync(id);
 
         return Results.NoContent();
     }

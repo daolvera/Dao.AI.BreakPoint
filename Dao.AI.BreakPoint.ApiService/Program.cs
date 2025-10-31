@@ -47,6 +47,10 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<BreakPointDbContext>();
     context.Database.EnsureCreated();
+    if (app.Environment.IsDevelopment())
+    {
+        await Seeder.Seed(context);
+    }
 }
 
 // Map endpoints from separate files
