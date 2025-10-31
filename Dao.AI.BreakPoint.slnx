@@ -3,4 +3,5 @@
   <Project Path="Dao.AI.BreakPoint.AppHost/Dao.AI.BreakPoint.AppHost.csproj" />
   <Project Path="Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj" Id="7ebbb13d-e638-4368-a862-ecf79b910617" />
   <Project Path="Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj" />
+  <Project Path="Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj" Id="1c73e782-dc70-4212-af71-8f6092cd5798" />
 </Solution>

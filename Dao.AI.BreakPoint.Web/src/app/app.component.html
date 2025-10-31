@@ -1,27 +1,41 @@
-<mat-toolbar class="fixed top-0 left-0 right-0 z-10 flex-items-center">
-  <button matIconButton aria-label="Open the side navigation" (click)="isSidenavExpanded = !isSidenavExpanded">
-    <mat-icon>menu</mat-icon>
-  </button>
-  <breakpoint-logo class="ms-3 text-4xl"/>
-  <button matIconButton aria-label="Navigate Home" [routerLink]="['/']">
-    <span class="text-primary-500 font-semibold">
-    BreakPoint.AI
-  </span>
-  </button>
-</mat-toolbar>
+<div class="h-full w-full">
+  <router-outlet />
+</div>
+<!-- <mat-toolbar class="fixed top-0 left-0 right-0 z-10 flex-items-center">
+    <button
+      matIconButton
+      aria-label="Open the side navigation"
+      (click)="isSidenavExpanded = !isSidenavExpanded"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
+    <breakpoint-logo class="ms-3 text-4xl" />
+    <button matIconButton aria-label="Navigate Home" [routerLink]="['/']">
+      <span class="text-primary-500 font-semibold"> BreakPoint.AI </span>
+    </button>
+  </mat-toolbar>
 
   <mat-sidenav-container class="absolute top-15 bottom-0 left-0 right-0">
-    <mat-sidenav #sidenav mode="side" [(opened)]="isSidenavExpanded"
-                 class="flex items-center justify-center w-[200px] bg-primary-500/50 m-3"
-                 fixedInViewport="false">
+    <mat-sidenav
+      #sidenav
+      mode="side"
+      [(opened)]="isSidenavExpanded"
+      class="flex items-center justify-center w-[200px] bg-primary-500/50 m-3"
+      fixedInViewport="false"
+    >
       <button matIconButton aria-label="Navigate Home" [routerLink]="['/']">
-          <span class="text-primary-500">
-          Home
-        </span>
+        <span class="text-primary-500"> Home </span>
+      </button>
+      <button
+        matIconButton
+        aria-label="Navigate to your profile"
+        [routerLink]="['/profile']"
+      >
+        <span class="text-primary-500"> Profile </span>
       </button>
     </mat-sidenav>
 
     <mat-sidenav-content class="h-full w-full">
       <router-outlet />
     </mat-sidenav-content>
-  </mat-sidenav-container>
+  </mat-sidenav-container> -->

@@ -5,11 +5,22 @@ namespace Dao.AI.BreakPoint.Data;
 
 public class BreakPointDbContext : DbContext
 {
+    public DbSet<Player> Players { get; set; }
+    public DbSet<SwingAnalysis> SwingAnalyses { get; set; }
+    public DbSet<Match> Matches { get; set; }
+
     public BreakPointDbContext(DbContextOptions<BreakPointDbContext> options) : base(options)
     {
     }
 
-    public DbSet<Player> Players { get; set; }
-    public DbSet<SwingAnalysis> SwingAnalyses { get; set; }
-    public DbSet<Match> Matches { get; set; }
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Player>()
+            .HasMany<Match>(p => p.MyReportedMatches)
+            .WithOne(nameof(Match.Player1));
+
+        modelBuilder.Entity<Player>()
+            .HasMany<Match>(p => p.MyParticipatedMatches)
+            .WithOne(nameof(Match.Player2));
+    }
 }

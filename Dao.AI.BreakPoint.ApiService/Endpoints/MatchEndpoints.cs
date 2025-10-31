@@ -75,16 +75,6 @@ public static class MatchEndpoints
             return Results.BadRequest("Player1Id does not exist");
         }
 
-        // Validate Player2 if provided
-        if (match.Player2Id.HasValue)
-        {
-            var player2Exists = await context.Players.AnyAsync(p => p.Id == match.Player2Id.Value);
-            if (!player2Exists)
-            {
-                return Results.BadRequest("Player2Id does not exist");
-            }
-        }
-
         match.CreatedAt = DateTime.UtcNow;
         match.UpdatedAt = DateTime.UtcNow;
 
