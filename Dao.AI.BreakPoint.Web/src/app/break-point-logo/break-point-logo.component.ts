@@ -7,15 +7,20 @@ import { DomSanitizer } from '@angular/platform-browser';
   standalone: true,
   imports: [MatIcon],
   template: `
-    <mat-icon
-      svgIcon="breakpoint-logo"
-      aria-hidden="false"
-      aria-label="BreakPoint.AI"
-    ></mat-icon>
+    <h1 class="ml-2 flex items-center">
+      <!-- todo: make icon bigger -->
+      <mat-icon
+        svgIcon="breakpoint-logo"
+        aria-hidden="false"
+        aria-label="BreakPoint.AI"
+        class="mr-2"
+      ></mat-icon>
+      {{ title }}
+    </h1>
   `,
 })
-// TODO: Make the logo bigger
 export class BreakPointLogoComponent {
+  protected title = 'BreakPoint.AI';
   private iconRegistry = inject(MatIconRegistry);
   private sanitizer = inject(DomSanitizer);
 

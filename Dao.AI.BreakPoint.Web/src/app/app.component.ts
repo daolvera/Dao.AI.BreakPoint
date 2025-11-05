@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,7 +22,27 @@ import { BreakPointLogoComponent } from './break-point-logo/break-point-logo.com
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
-  protected title = 'BreakPoint.AI';
+export class AppComponent implements OnInit {
   protected isSidenavExpanded: boolean = false;
+  protected isMobile: boolean = false;
+  protected isSignedIn: boolean = false;
+  protected playerId: number | null = null;
+
+  public ngOnInit(): void {
+    this.CheckScreenSize();
+  }
+
+  @HostListener('window:resize', ['$event'])
+  public onWindowResize(event: Event) {
+    this.CheckScreenSize();
+  }
+
+  protected SignIn() {
+    this.isSignedIn = true;
+    this.playerId = 1;
+  }
+
+  private CheckScreenSize() {
+    this.isMobile = window.innerWidth < 768;
+  }
 }

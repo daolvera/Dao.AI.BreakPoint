@@ -1,5 +1,5 @@
 module.exports = {
-  "/api/*": {
+  "/api": {
     target:
       process.env["services__breakpointapi__https__0"] ||
       process.env["services__breakpointapi__http__0"] ||

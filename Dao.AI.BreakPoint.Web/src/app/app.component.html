@@ -1,41 +1,48 @@
-<div class="h-full w-full">
-  <router-outlet />
-</div>
-<!-- <mat-toolbar class="fixed top-0 left-0 right-0 z-10 flex-items-center">
-    <button
-      matIconButton
-      aria-label="Open the side navigation"
-      (click)="isSidenavExpanded = !isSidenavExpanded"
-    >
-      <mat-icon>menu</mat-icon>
-    </button>
-    <breakpoint-logo class="ms-3 text-4xl" />
-    <button matIconButton aria-label="Navigate Home" [routerLink]="['/']">
-      <span class="text-primary-500 font-semibold"> BreakPoint.AI </span>
-    </button>
+<div class="breakpoint-container" [class.breakpoint-is-mobile]="isMobile">
+  <mat-toolbar class="breakpoint-toolbar">
+    <div class="flex flex-row items-center">
+      <button matIconButton (click)="snav.toggle()">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <breakpoint-logo />
+    </div>
+    <div>
+      @if (isSignedIn){
+      <a mat-list-item [routerLink]="['profile', playerId]">Profile</a>
+      } @else{
+      <button mat-button (click)="SignIn()">Sign In</button>
+      }
+    </div>
   </mat-toolbar>
 
-  <mat-sidenav-container class="absolute top-15 bottom-0 left-0 right-0">
+  <mat-sidenav-container
+    class="breakpoint-sidenav-container"
+    [style.marginTop.px]="isMobile ? 56 : 0"
+  >
     <mat-sidenav
-      #sidenav
-      mode="side"
-      [(opened)]="isSidenavExpanded"
-      class="flex items-center justify-center w-[200px] bg-primary-500/50 m-3"
-      fixedInViewport="false"
+      #snav
+      [mode]="isMobile ? 'over' : 'side'"
+      [fixedInViewport]="isMobile"
+      fixedTopGap="56"
     >
-      <button matIconButton aria-label="Navigate Home" [routerLink]="['/']">
-        <span class="text-primary-500"> Home </span>
-      </button>
-      <button
-        matIconButton
-        aria-label="Navigate to your profile"
-        [routerLink]="['/profile']"
-      >
-        <span class="text-primary-500"> Profile </span>
-      </button>
+      <mat-nav-list>
+        <a [routerLink]="['']" class="flex items-center">
+          <mat-icon class="me-2">home</mat-icon>
+          Home
+        </a>
+      </mat-nav-list>
+      @if (isSignedIn){
+      <mat-nav-list>
+        <a [routerLink]="['profile', playerId]" class="flex items-center">
+          <mat-icon class="me-2">account_circle</mat-icon>
+          View Profile
+        </a>
+      </mat-nav-list>
+      }
     </mat-sidenav>
 
-    <mat-sidenav-content class="h-full w-full">
+    <mat-sidenav-content>
       <router-outlet />
     </mat-sidenav-content>
-  </mat-sidenav-container> -->
+  </mat-sidenav-container>
+</div>
