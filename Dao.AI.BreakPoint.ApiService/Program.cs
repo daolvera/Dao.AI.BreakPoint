@@ -1,5 +1,6 @@
 using Dao.AI.BreakPoint.ApiService.Endpoints;
 using Dao.AI.BreakPoint.Data;
+using Dao.AI.BreakPoint.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,9 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddScoped<IAuthenticationService, DummyAuthenticationService>();
+builder.Services.AddBreakPointServices();
 
 // Add DbContext with MySQL
 builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");

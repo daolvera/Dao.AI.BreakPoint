@@ -1,0 +1,18 @@
+{
+    "version": "2.0",
+    "logging": {
+        "applicationInsights": {
+            "samplingSettings": {
+                "isEnabled": true,
+                "excludedTypes": "Request"
+            },
+            "enableLiveMetricsFilters": true
+        }
+    },
+    "retry": {
+        "strategy": "exponentialBackoff",
+        "maxRetryCount": 3,
+        "minimumInterval": "00:00:02",
+        "maximumInterval": "00:00:30"
+    }
+}

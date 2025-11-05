@@ -8,6 +8,7 @@ public class BreakPointDbContext : DbContext
     public DbSet<Player> Players { get; set; }
     public DbSet<SwingAnalysis> SwingAnalyses { get; set; }
     public DbSet<Match> Matches { get; set; }
+    public DbSet<AnalysisEvent> AnalysisEvents { get; set; }
 
     public BreakPointDbContext(DbContextOptions<BreakPointDbContext> options) : base(options)
     {

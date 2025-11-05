@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Dao.AI.BreakPoint.AnalyzerFunction": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7264",
+      "launchBrowser": false
+    }
+  }
+}
