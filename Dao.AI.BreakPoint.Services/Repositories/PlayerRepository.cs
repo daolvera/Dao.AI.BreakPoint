@@ -1,12 +1,12 @@
 ﻿using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services.DTOs;
-using Dao.AI.BreakPoint.Services.SearchParams;
+using Dao.AI.BreakPoint.Services.Requests;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dao.AI.BreakPoint.Services.Repositories;
 
-public class PlayerRepository : BaseRepository<Player, PlayerSearchParameters>, IPlayerRepository
+public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPlayerRepository
 {
     private BreakPointDbContext DbContext { get; init; }
     public PlayerRepository(BreakPointDbContext dbContext) : base(dbContext)
@@ -14,11 +14,11 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchParameters>, 
         DbContext = dbContext;
     }
 
-    public override IQueryable<Player> ApplySearchFilters(IQueryable<Player> query, PlayerSearchParameters searchParams)
+    public override IQueryable<Player> ApplySearchFilters(IQueryable<Player> query, PlayerSearchRequest searchParams)
     {
         if (!string.IsNullOrWhiteSpace(searchParams.PlayerName))
         {
-            query = query.Where(p => p.Name.Contains(searchParams.PlayerName));
+            query = query.Where(p => p.DisplayName.Contains(searchParams.PlayerName));
         }
 
         if (!string.IsNullOrWhiteSpace(searchParams.Email))
@@ -49,7 +49,7 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchParameters>, 
         return new PlayerWithStatsDto()
         {
             Id = player.Id,
-            Name = player.Name,
+            Name = player.DisplayName,
             Email = player.AppUser?.Email,
             TotalMatches = totalMatches,
             CreatedAt = player.CreatedAt,

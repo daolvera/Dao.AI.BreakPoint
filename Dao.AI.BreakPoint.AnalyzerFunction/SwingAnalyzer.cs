@@ -2,14 +2,13 @@ using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.Exceptions;
 using Microsoft.Azure.Functions.Worker;
-using Microsoft.Extensions.Logging;
 
 namespace Dao.AI.BreakPoint.AnalyzerFunction;
 
 public class SwingAnalyzer(
     ISwingAnalyzerService SwingAnalyzerService,
-    IAnalysisEventService AnalysisEventService,
-    ILogger<SwingAnalyzer> Logger
+    IAnalysisEventService AnalysisEventService
+    //ILogger<SwingAnalyzer> Logger
     )
 {
 

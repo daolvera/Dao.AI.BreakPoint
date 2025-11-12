@@ -1,21 +1,21 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
 
 import { routes } from './app.routes';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
+import { authTokenInterceptor } from './core/interceptors/auth-token.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(),
+    provideHttpClient(withInterceptors([authTokenInterceptor])),
     provideAnimationsAsync(),
-    // add in a busy spinner on http requests
-    // add in a toast service
-    // add in a default error handler using a red toast with an error occurred
-    // add in a logging service like AppInsights
-    // add in modal service from angular material
-    // add in auth stuff
+    // TODO: add in a busy spinner on http requests
+    // TODO: add in a toast service
+    // TODO: add in a default error handler using a red toast with an error occurred
+    // TODO: add in a logging service like AppInsights
+    // TODO: add in modal service from angular material
   ],
 };

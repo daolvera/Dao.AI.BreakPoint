@@ -75,21 +75,19 @@ public static class PlayerEndpoints
 
     private static async Task<IResult> CreatePlayer(
         [FromServices] IPlayerService playerService,
-        [FromServices] IAuthenticationService authService,
         [FromBody] CreatePlayerDto createPlayerDto)
     {
-        var playerId = await playerService.CreateAsync(createPlayerDto, await authService.GetAppUserId());
+        var playerId = await playerService.CreateAsync(createPlayerDto, 1);
 
         return Results.Created($"/api/players/{playerId}", createPlayerDto);
     }
 
     private static async Task<IResult> UpdatePlayer(
         [FromServices] IPlayerService playerService,
-        [FromServices] IAuthenticationService authService,
         [FromRoute] int id,
         [FromBody] CreatePlayerDto updatedPlayer)
     {
-        return Results.Ok(await playerService.UpdateAsync(id, updatedPlayer, await authService.GetAppUserId()));
+        return Results.Ok(await playerService.UpdateAsync(id, updatedPlayer, 1));
     }
 
     // TODO: implement role based access to do this

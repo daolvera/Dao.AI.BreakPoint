@@ -7,10 +7,12 @@
       <breakpoint-logo />
     </div>
     <div>
-      @if (isSignedIn){
-      <a mat-list-item [routerLink]="['profile', playerId]">Profile</a>
+      @if (authService.userInfo() != null){
+      <a mat-list-item [routerLink]="['profile']">{{
+        authService.userInfo()?.name
+      }}</a>
       } @else{
-      <button mat-button (click)="SignIn()">Sign In</button>
+      <button mat-button (click)="authService.login()">Sign In</button>
       }
     </div>
   </mat-toolbar>
@@ -31,9 +33,9 @@
           Home
         </a>
       </mat-nav-list>
-      @if (isSignedIn){
+      @if (authService.userInfo() != null){
       <mat-nav-list>
-        <a [routerLink]="['profile', playerId]" class="flex items-center">
+        <a [routerLink]="['profile']" class="flex items-center">
           <mat-icon class="me-2">account_circle</mat-icon>
           View Profile
         </a>
@@ -42,7 +44,9 @@
     </mat-sidenav>
 
     <mat-sidenav-content>
-      <router-outlet />
+      <div class="m-2">
+        <router-outlet />
+      </div>
     </mat-sidenav-content>
   </mat-sidenav-container>
 </div>

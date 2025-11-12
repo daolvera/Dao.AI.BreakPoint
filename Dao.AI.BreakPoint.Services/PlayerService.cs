@@ -1,6 +1,6 @@
 ﻿using Dao.AI.BreakPoint.Services.DTOs;
 using Dao.AI.BreakPoint.Services.Repositories;
-using Dao.AI.BreakPoint.Services.SearchParams;
+using Dao.AI.BreakPoint.Services.Requests;
 
 namespace Dao.AI.BreakPoint.Services;
 
@@ -50,7 +50,7 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
         return await playerRepository.GetPlayerWithStatsAsync(id);
     }
 
-    public async Task<IEnumerable<PlayerDto>> SearchAsync(PlayerSearchParameters playerSearchParameters)
+    public async Task<IEnumerable<PlayerDto>> SearchAsync(PlayerSearchRequest playerSearchParameters)
     {
         return (await playerRepository.GetValuesAsync(playerSearchParameters))
             .Select(PlayerDto.FromModel);

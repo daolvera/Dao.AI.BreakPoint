@@ -1,4 +1,4 @@
-import { PlayerType } from '../enums/player-type';
+import { PlayerType } from '../enums/player-type.enum';
 
 export interface PlayerDto extends CreatePlayerDto {
   id: number;

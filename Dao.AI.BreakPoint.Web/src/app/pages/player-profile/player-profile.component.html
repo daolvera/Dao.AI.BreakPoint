@@ -1,5 +1,31 @@
 @if (playerWithStats){
 <h1>{{ playerWithStats.name }}</h1>
-} @else{
-<p>Loading player profile...</p>
+<div class="grid grid-cols-1 lg:grid-cols-3">
+  <!-- Player Profile Card -->
+  <mat-card class="m-2 p-4">
+    <mat-card-title>Player Profile</mat-card-title>
+    <mat-card-content>
+      <p><strong>Name:</strong> {{ playerWithStats.name }}</p>
+    </mat-card-content>
+  </mat-card>
+  <!-- Match Stats Card -->
+  <mat-card class="m-2 p-4">
+    <mat-card-title>Match Stats</mat-card-title>
+    <mat-card-content>
+      <p><strong>Matches Won:</strong> {{ playerWithStats.matchesWon }}</p>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Coaching Card -->
+  <mat-card class="m-2 p-4">
+    <mat-card-title>Coaching History</mat-card-title>
+    <mat-card-content>
+      @for (tip of playerWithStats.latestCoachingTips; track $index){
+      <p>{{ tip }}</p>
+      } @empty {
+      <p>No coaching tips available.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>
 }

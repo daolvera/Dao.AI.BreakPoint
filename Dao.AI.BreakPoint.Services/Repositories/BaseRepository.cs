@@ -1,13 +1,13 @@
 ﻿using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Data.Models;
-using Dao.AI.BreakPoint.Services.SearchParams;
+using Dao.AI.BreakPoint.Services.Requests;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dao.AI.BreakPoint.Services.Repositories;
 
 public abstract class BaseRepository<TEntity, TSearchParams>(BreakPointDbContext DbContext)
     where TEntity : BaseModel
-    where TSearchParams : SearchParameters
+    where TSearchParams : PagedSearchRequest
 {
     public async Task<int> AddAsync(TEntity entity, int? appUserId)
     {
