@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Dao.AI.BreakPoint.ApiService.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class AuthController(IConfiguration Configuration) : ControllerBase
 {
     [HttpGet("google")]

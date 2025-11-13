@@ -7,7 +7,7 @@ namespace Dao.AI.BreakPoint.ApiService.Controllers;
 
 [ApiController]
 [Authorize]
-[Route("api/players")]
+[Route("[controller]")]
 public class PlayerController(IPlayerService playerService) : ControllerBase
 {
     [HttpGet]
