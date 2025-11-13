@@ -6,7 +6,7 @@ namespace Dao.AI.BreakPoint.Data;
 
 public static class Seeder
 {
-    public static async Task Seed(BreakPointDbContext breakPointDb)
+    public static async Task SeedFakeData(BreakPointDbContext breakPointDb)
     {
         // Check if data already exists
         if (await breakPointDb.Players.AnyAsync())

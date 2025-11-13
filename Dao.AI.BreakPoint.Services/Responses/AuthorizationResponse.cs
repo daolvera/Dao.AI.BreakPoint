@@ -2,7 +2,7 @@
 
 namespace Dao.AI.BreakPoint.Services.Responses;
 
-public class AuthorizationResponse : RefreshTokenResponse
+public class AuthorizationResponse : TokenResponse
 {
     public UserDto User { get; set; } = null!;
 }
