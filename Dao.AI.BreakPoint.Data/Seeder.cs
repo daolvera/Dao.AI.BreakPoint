@@ -39,8 +39,6 @@ public static class Seeder
             new() {
                 Email = "player1@tennis.com",
                 CreatedAt = now,
-                ExternalProvider = OAuthProvider.Google,
-                ExternalProviderId = "google-player1-id",
                 Player = new()
                 {
                     UstaRating = 3.5,
@@ -50,8 +48,6 @@ public static class Seeder
             new() {
                 Email = "player2@tennis.com",
                 CreatedAt = now,
-                ExternalProvider = OAuthProvider.Google,
-                ExternalProviderId = "google-player2-id",
                 Player = new()
                 {
                     UstaRating = 4.0,
@@ -61,8 +57,6 @@ public static class Seeder
             new() {
                 Email = "player3@tennis.com",
                 CreatedAt = now,
-                ExternalProvider = OAuthProvider.Google,
-                ExternalProviderId = "google-player3-id",
                 Player = new()
                 {
                     UstaRating = 4.5,
@@ -72,8 +66,6 @@ public static class Seeder
             new() {
                 Email = "player4@tennis.com",
                 CreatedAt = now,
-                ExternalProvider = OAuthProvider.Google,
-                ExternalProviderId = "google-player4-id",
                 Player = new()
                 {
                     UstaRating = 5.0,
@@ -83,8 +75,6 @@ public static class Seeder
             new() {
                 Email = "player5@tennis.com",
                 CreatedAt = now,
-                ExternalProvider = OAuthProvider.Google,
-                ExternalProviderId = "google-player5-id",
                 Player = new()
                 {
                     UstaRating = 5.5,

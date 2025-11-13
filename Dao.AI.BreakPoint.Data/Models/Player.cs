@@ -9,7 +9,7 @@ public class Player : UpdatableModel
     /// The user will always be populated
     /// unless the Player is created as an opponent in a match not as an application user
     /// </summary>
-    public int? AppUserId { get; set; }
+    public string? AppUserId { get; set; }
     public AppUser? AppUser { get; set; }
     public string DisplayName { get; set; } = null!;
 

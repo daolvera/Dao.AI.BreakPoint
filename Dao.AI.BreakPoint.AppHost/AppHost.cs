@@ -10,11 +10,15 @@ var breakPointApi = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("b
     .WaitFor(breakPointDb)
     .WithHttpHealthCheck("/health");
 
-builder.AddNpmApp("webapp", "../Dao.AI.BreakPoint.Web")
+var breakPointApp = builder.AddNpmApp("webapp", "../Dao.AI.BreakPoint.Web")
     .WithReference(breakPointApi)
     .WaitFor(breakPointApi)
     .WithHttpEndpoint(port: 3000, env: "PORT")
     .WithExternalHttpEndpoints()
     .PublishAsDockerFile();
+
+var frontendHttpEndpoint = breakPointApp.GetEndpoint("http");
+
+breakPointApi.WithEnvironment("BreakPointAppUrl", frontendHttpEndpoint);
 
 builder.Build().Run();

@@ -41,7 +41,7 @@ public class PlayerController(IPlayerService playerService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> CreatePlayer(CreatePlayerDto createPlayerDto)
     {
-        var playerId = await playerService.CreateAsync(createPlayerDto, 1);
+        var playerId = await playerService.CreateAsync(createPlayerDto, "1");
         return CreatedAtAction(nameof(GetPlayerById), new { id = playerId }, playerId);
     }
 
@@ -51,7 +51,7 @@ public class PlayerController(IPlayerService playerService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> UpdatePlayer(int id, CreatePlayerDto updatedPlayer)
     {
-        var result = await playerService.UpdateAsync(id, updatedPlayer, 1);
+        var result = await playerService.UpdateAsync(id, updatedPlayer, "1");
         return Ok(result);
     }
 
@@ -60,7 +60,7 @@ public class PlayerController(IPlayerService playerService) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> DeletePlayer(int id)
     {
-        // TODO: implement role based access to do this
+        // TODO DAO: implement role based access to do this
         await playerService.DeleteAsync(id);
         return NoContent();
     }

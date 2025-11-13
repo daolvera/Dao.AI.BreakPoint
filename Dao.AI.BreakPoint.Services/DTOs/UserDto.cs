@@ -1,6 +1,4 @@
-﻿using Dao.AI.BreakPoint.Data.Models;
-
-namespace Dao.AI.BreakPoint.Services.DTOs;
+﻿namespace Dao.AI.BreakPoint.Services.DTOs;
 
 public class UserDto
 {
@@ -9,5 +7,4 @@ public class UserDto
     public string Name { get; set; } = null!;
     public bool IsProfileComplete { get; set; }
     public int PlayerId { get; set; }
-    public OAuthProvider ExternalProvider { get; set; }
 }

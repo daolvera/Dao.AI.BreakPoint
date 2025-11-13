@@ -6,9 +6,10 @@ namespace Dao.AI.BreakPoint.Services.Repositories;
 
 public interface IPlayerRepository
 {
-    Task<int> AddAsync(Player player, int? appUserId);
-    Task<bool> UpdateAsync(Player player, int? appUserId);
+    Task<int> AddAsync(Player player, string? appUserId);
+    Task<bool> UpdateAsync(Player player, string? appUserId);
     Task<Player?> GetByIdAsync(int id);
+    Task<Player?> GetByAppUserIdAsync(string appUserId);
     Task<bool> DeleteItemAsync(int id);
     Task<IEnumerable<Player>> GetValuesAsync(PlayerSearchRequest playerSearchParameters);
     Task<PlayerWithStatsDto?> GetPlayerWithStatsAsync(int id);

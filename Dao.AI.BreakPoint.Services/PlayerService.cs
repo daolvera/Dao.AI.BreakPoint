@@ -1,4 +1,6 @@
-﻿using Dao.AI.BreakPoint.Services.DTOs;
+﻿using Dao.AI.BreakPoint.Data.Models;
+using Dao.AI.BreakPoint.Services.DTOs;
+using Dao.AI.BreakPoint.Services.Exceptions;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.Requests;
 
@@ -6,9 +8,20 @@ namespace Dao.AI.BreakPoint.Services;
 
 public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
 {
-    public async Task<int> CreateAsync(CreatePlayerDto createPlayerDto, int? appUserId)
+    public async Task<int> CreateAsync(CreatePlayerDto createPlayerDto, string? appUserId)
     {
         return await playerRepository.AddAsync(createPlayerDto.ToModel(), appUserId);
+    }
+
+    public async Task<bool> CompleteAsync(CompleteProfileRequest completeProfileRequest, string appUserId)
+    {
+        Player player = await playerRepository.GetByAppUserIdAsync(appUserId)
+            ?? throw new NotFoundException($"Player with App User Id {appUserId}");
+        player.UstaRating = completeProfileRequest.UstaRating;
+        player.DisplayName = completeProfileRequest.Name;
+        player.AppUser!.IsProfileComplete = true;
+        await playerRepository.UpdateAsync(player, appUserId);
+        return true;
     }
 
     public async Task<bool> DeleteAsync(int id)
@@ -30,7 +43,7 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
     {
         return (await playerRepository.GetByIdAsync(id)) is not null;
     }
-    // TODO: implement paging
+    // TODO DAO: implement paging
     public async Task<IEnumerable<PlayerDto>> GetAllAsync()
     {
         var allPlayers = await playerRepository.GetValuesAsync(new());
@@ -56,7 +69,7 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
             .Select(PlayerDto.FromModel);
     }
 
-    public async Task<bool> UpdateAsync(int id, CreatePlayerDto createPlayerDto, int? appUserId)
+    public async Task<bool> UpdateAsync(int id, CreatePlayerDto createPlayerDto, string? appUserId)
     {
         return await playerRepository.UpdateAsync(createPlayerDto.ToModel(), appUserId);
     }

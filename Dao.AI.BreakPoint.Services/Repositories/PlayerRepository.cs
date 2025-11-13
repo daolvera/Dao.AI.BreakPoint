@@ -14,6 +14,13 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
         DbContext = dbContext;
     }
 
+    public Task<Player?> GetByAppUserIdAsync(string appUserId)
+    {
+        return DbContext.Players
+            .Include(p => p.AppUser)
+            .SingleOrDefaultAsync(p => p.AppUser != null && p.AppUser.Id == appUserId);
+    }
+
     public override IQueryable<Player> ApplySearchFilters(IQueryable<Player> query, PlayerSearchRequest searchParams)
     {
         if (!string.IsNullOrWhiteSpace(searchParams.PlayerName))
@@ -26,7 +33,7 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
             query = query
                 .Include(p => p.AppUser)
                 .Where(p => p.AppUser != null &&
-                    p.AppUser.Email.Equals(searchParams.Email, StringComparison.InvariantCultureIgnoreCase));
+                    p.AppUser.Email!.Equals(searchParams.Email, StringComparison.InvariantCultureIgnoreCase));
         }
 
         return query;

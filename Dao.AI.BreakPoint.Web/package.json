@@ -1,6 +1,6 @@
 {
   "name": "dao.ai.break-point.web",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "scripts": {
     "ng": "ng",
     "start": "run-script-os",
@@ -15,14 +15,17 @@
     "@angular/animations": "^18.2.0",
     "@angular/cdk": "^18.2.14",
     "@angular/common": "^18.2.0",
-    "@anngular/material": "^18.2.14",
-    "@agular/compiler": "^18.2.0",
+    "@angular/material": "^18.2.14",
+    "@angular/compiler": "^18.2.0",
     "@angular/core": "^18.2.0",
     "@angular/forms": "^18.2.0",
     "@angular/platform-browser": "^18.2.0",
     "@angular/platform-browser-dynamic": "^18.2.0",
     "@angular/router": "^18.2.0",
     "run-script-os": "^1.1.6",
+    "@tailwindcss/postcss": "^4.1.15",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.15",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.14.10"

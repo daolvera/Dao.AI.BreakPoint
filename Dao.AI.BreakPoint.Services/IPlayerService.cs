@@ -9,8 +9,9 @@ public interface IPlayerService
     Task<IEnumerable<PlayerDto>> GetAllAsync();
     Task<IEnumerable<PlayerDto>> SearchAsync(PlayerSearchRequest playerSearchParameters);
     Task<PlayerWithStatsDto?> GetWithStatsAsync(int id);
-    Task<int> CreateAsync(CreatePlayerDto createPlayerDto, int? appUserId);
-    Task<bool> UpdateAsync(int id, CreatePlayerDto createPlayerDto, int? appUserId);
+    Task<bool> CompleteAsync(CompleteProfileRequest completeProfileRequest, string appUserId);
+    Task<int> CreateAsync(CreatePlayerDto createPlayerDto, string? appUserId);
+    Task<bool> UpdateAsync(int id, CreatePlayerDto createPlayerDto, string? appUserId);
     Task<bool> DeleteAsync(int id);
     Task<bool> ExistsAsync(int id);
     Task<bool> EmailExistsAsync(string email, int? excludeId = null);

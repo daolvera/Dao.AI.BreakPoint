@@ -11,5 +11,5 @@ public abstract class BaseModel
     /// If null, it was created by the system
     /// otherwise connects to the user created the model
     /// </summary>
-    public int? CreatedByAppUserId { get; set; }
+    public string? CreatedByAppUserId { get; set; }
 }
