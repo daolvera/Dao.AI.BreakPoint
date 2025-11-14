@@ -49,6 +49,7 @@ if (app.Environment.IsDevelopment())
         c.RoutePrefix = string.Empty; // This makes Swagger UI available at the app's root
     });
 }
+// test
 
 app.UseAuthentication();
 app.UseAuthorization();
