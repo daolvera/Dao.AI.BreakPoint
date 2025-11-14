@@ -1,7 +1,7 @@
 using Dao.AI.BreakPoint.ApiService.Configuration;
 using Dao.AI.BreakPoint.Data;
-using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
+using Microsoft.IdentityModel.Protocols.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,21 +9,23 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
 
-// Add CORS
-// TODO DAO: make more secure
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy(
-//        "AllowAngularApp",
-//        policy =>
-//        {
-//            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
-//        }
-//    );
-//});
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        "AllowAngularApp",
+        policy =>
+        {
+            policy.WithOrigins(
+                builder.Configuration["BreakPointAppUrl"] ??
+                    throw new InvalidConfigurationException("BreakPointAppUrl is not configured")
+                ).AllowAnyMethod().AllowAnyHeader();
+        }
+    );
+});
 
 builder.Services.AddControllers();
 builder.Services.AddBreakPointServices();
+builder.Services.AddBreakPointIdentityServices();
 
 builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");
 
@@ -44,7 +46,6 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.MapIdentityApi<AppUser>();
 app.UseAuthentication();
 app.UseAuthorization();
 

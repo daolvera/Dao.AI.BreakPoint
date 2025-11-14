@@ -11,4 +11,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPlayerRepository, PlayerRepository>();
         return services;
     }
+
+    public static IServiceCollection AddBreakPointIdentityServices(this IServiceCollection services)
+    {
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IAppUserRepository, AppUserRepository>();
+        return services;
+    }
 }
