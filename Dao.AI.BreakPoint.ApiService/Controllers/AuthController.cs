@@ -140,14 +140,6 @@ public class AuthController(
             GoogleDefaults.AuthenticationScheme
         );
     }
-
-    [HttpGet("google/callback")]
-    [EndpointDescription("Handle the external provider callback to complete authentication")]
-    public async Task<IActionResult> HandleGoogleCallback()
-    {
-        await Task.CompletedTask;
-        return Ok();
-    }
     #endregion
 
     private async Task<AppUser?> FindOrCreateUserFromProvider(
