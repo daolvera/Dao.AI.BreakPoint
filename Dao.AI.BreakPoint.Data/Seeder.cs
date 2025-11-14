@@ -42,7 +42,7 @@ public static class Seeder
                 Player = new()
                 {
                     UstaRating = 3.5,
-                    DisplayName = "Player One"
+                    Name = "Player One"
                 }
             },
             new() {
@@ -51,7 +51,7 @@ public static class Seeder
                 Player = new()
                 {
                     UstaRating = 4.0,
-                    DisplayName = "Player Two"
+                    Name = "Player Two"
                 }
             },
             new() {
@@ -60,7 +60,7 @@ public static class Seeder
                 Player = new()
                 {
                     UstaRating = 4.5,
-                    DisplayName = "Player Three"
+                    Name = "Player Three"
                 }
             },
             new() {
@@ -69,7 +69,7 @@ public static class Seeder
                 Player = new()
                 {
                     UstaRating = 5.0,
-                    DisplayName = "Player Four"
+                    Name = "Player Four"
                 }
             },
             new() {
@@ -78,7 +78,7 @@ public static class Seeder
                 Player = new()
                 {
                     UstaRating = 5.5,
-                    DisplayName = "Player Five"
+                    Name = "Player Five"
                 }
             },
         };
@@ -99,7 +99,7 @@ public static class Seeder
             new()
             {
                 AppUserId = appUsers[0].Id,
-                DisplayName = "Alex Champion",
+                Name = "Alex Champion",
                 UstaRating = 6.5,
                 EstimatedPlayerType = PlayerType.AllCourtPlayer,
                 BigServerScore = 0.7,
@@ -114,7 +114,7 @@ public static class Seeder
             new()
             {
                 AppUserId = appUsers[1].Id,
-                DisplayName = "Maria Defense",
+                Name = "Maria Defense",
                 UstaRating = 6.0,
                 EstimatedPlayerType = PlayerType.CounterPuncher,
                 BigServerScore = 0.5,
@@ -129,7 +129,7 @@ public static class Seeder
             new()
             {
                 AppUserId = appUsers[2].Id,
-                DisplayName = "John Baseline",
+                Name = "John Baseline",
                 UstaRating = 5.5,
                 EstimatedPlayerType = PlayerType.SolidBaseliner,
                 BigServerScore = 0.6,
@@ -144,7 +144,7 @@ public static class Seeder
             new()
             {
                 AppUserId = appUsers[3].Id,
-                DisplayName = "Sarah Power",
+                Name = "Sarah Power",
                 UstaRating = 5.0,
                 EstimatedPlayerType = PlayerType.AttackingBaseliner,
                 BigServerScore = 0.8,
@@ -159,7 +159,7 @@ public static class Seeder
             new()
             {
                 AppUserId = appUsers[4].Id,
-                DisplayName = "Mike Serve",
+                Name = "Mike Serve",
                 UstaRating = 4.5,
                 EstimatedPlayerType = PlayerType.BigServer,
                 BigServerScore = 0.95,
@@ -174,7 +174,7 @@ public static class Seeder
             // Additional club players without app users
             new()
             {
-                DisplayName = "Local Player One",
+                Name = "Local Player One",
                 UstaRating = 4.0,
                 EstimatedPlayerType = PlayerType.SolidBaseliner,
                 BigServerScore = 0.4,
@@ -188,7 +188,7 @@ public static class Seeder
             },
             new()
             {
-                DisplayName = "Local Player Two",
+                Name = "Local Player Two",
                 UstaRating = 3.5,
                 EstimatedPlayerType = PlayerType.AttackingBaseliner,
                 BigServerScore = 0.5,

@@ -2,10 +2,16 @@ import { Routes } from '@angular/router';
 import { HomeComponent } from './pages/home/home.component';
 import { PlayerProfileComponent } from './pages/player-profile/player-profile.component';
 import { authGuard } from './core/guards/auth.guard';
+import { CompleteProfileComponent } from './pages/complete-profile/complete-profile.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'home', redirectTo: '' },
+  {
+    path: 'complete-profile',
+    component: CompleteProfileComponent,
+    canActivate: [authGuard],
+  },
   {
     path: 'profile',
     component: PlayerProfileComponent,

@@ -25,7 +25,7 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
     {
         if (!string.IsNullOrWhiteSpace(searchParams.PlayerName))
         {
-            query = query.Where(p => p.DisplayName.Contains(searchParams.PlayerName));
+            query = query.Where(p => p.Name.Contains(searchParams.PlayerName));
         }
 
         if (!string.IsNullOrWhiteSpace(searchParams.Email))
@@ -56,7 +56,7 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
         return new PlayerWithStatsDto()
         {
             Id = player.Id,
-            Name = player.DisplayName,
+            Name = player.Name,
             Email = player.AppUser?.Email,
             TotalMatches = totalMatches,
             CreatedAt = player.CreatedAt,

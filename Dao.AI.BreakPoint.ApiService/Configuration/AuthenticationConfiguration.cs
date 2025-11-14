@@ -1,4 +1,5 @@
-﻿using Dao.AI.BreakPoint.Data;
+﻿using Dao.AI.BreakPoint.ApiService.Utilities;
+using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.Options;
@@ -49,6 +50,20 @@ public static class AuthenticationConfiguration
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true
+                };
+                options.Events = new()
+                {
+                    OnMessageReceived = context =>
+                    {
+                        var token = context.Request.Cookies[CodeLookUps.AccessTokenCookieKey];
+
+                        if (!string.IsNullOrEmpty(token))
+                        {
+                            context.Token = token;
+                        }
+
+                        return Task.CompletedTask;
+                    }
                 };
             })
             .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>

@@ -1,7 +1,8 @@
+using Dao.AI.BreakPoint.ApiService.Utilities;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.DTOs;
-using Dao.AI.BreakPoint.Services.Exceptions;
+using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.Requests;
 using Dao.AI.BreakPoint.Services.Responses;
 using Microsoft.AspNetCore.Authentication;
@@ -20,39 +21,86 @@ namespace Dao.AI.BreakPoint.ApiService.Controllers;
 public class AuthController(
     UserManager<AppUser> UserManager,
     ITokenService TokenService,
+    IPlayerService PlayerService,
+    IAppUserRepository AppUserRepository,
     IConfiguration Configuration,
     ILogger<AuthController> Logger
     ) : ControllerBase
 {
-    [HttpGet("google")]
-    [EndpointDescription("Begins the login using Google as the provided OAuth External Provider")]
-    public ChallengeResult BeginGoogleLogin()
+    [Authorize]
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(UserDto), 200)]
+    [ProducesResponseType(401)]
+    public async Task<IActionResult> GetUserDetails()
     {
-        var properties = new AuthenticationProperties { RedirectUri = Url.Action(nameof(HandleGoogleChallenge)) };
-
-        return Challenge(
-            properties,
-            GoogleDefaults.AuthenticationScheme
-        );
+        AppUser? user = await UserManager.FindByIdAsync(User.GetAppUserId());
+        if (user == null)
+        {
+            return Unauthorized();
+        }
+        return Ok(new UserDto
+        {
+            Id = user.Id,
+            Email = user.Email,
+            DisplayName = user.DisplayName,
+            IsProfileComplete = user.IsProfileComplete
+        });
     }
 
-    [HttpGet("google/challenge")]
+    [Authorize]
+    [HttpGet("refresh")]
+    public async Task<IActionResult> RefreshToken()
+    {
+        var refreshToken = Request.Cookies[CodeLookUps.RefreshTokenCookieKey];
+        if (string.IsNullOrEmpty(refreshToken))
+        {
+            return Unauthorized();
+        }
+        AppUser? userFromRefresh = await AppUserRepository.GetByRefreshTokenAsync(refreshToken);
+        if (userFromRefresh is null || userFromRefresh.RefreshTokenExpiry <= DateTime.UtcNow)
+        {
+            return Unauthorized();
+        }
+        SetSecureTokenCookies(await TokenService.GenerateTokenAsync(userFromRefresh));
+        return Ok();
+    }
+
+    [Authorize]
+    [HttpDelete("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(CodeLookUps.AccessTokenCookieKey);
+        Response.Cookies.Delete(CodeLookUps.RefreshTokenCookieKey);
+        Response.Cookies.Delete(CodeLookUps.IsAuthenticatedCookieKey);
+
+        return Ok();
+    }
+
+    [Authorize]
+    [HttpPost("complete")]
+    public async Task<IActionResult> CompleteProfile([FromBody] CompleteProfileRequest completeProfileRequest)
+    {
+        var wasSuccessfullyCompleted = await PlayerService.CompleteAsync(completeProfileRequest, User.GetAppUserId());
+        return wasSuccessfullyCompleted ? Ok() : BadRequest();
+    }
+
+    [HttpGet("challenge")]
     [EndpointDescription("Handle the external provider callback to complete authentication")]
-    public async Task<IActionResult> HandleGoogleChallenge()
+    public async Task<IActionResult> HandleChallenge()
     {
         var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         if (!result.Succeeded)
         {
-            return BadRequest("Google authentication failed");
+            return BadRequest("Authentication failed");
         }
 
-        var googleId = result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var id = result.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         var email = result.Principal.FindFirst(ClaimTypes.Email)?.Value;
         var name = result.Principal.FindFirst(ClaimTypes.Name)?.Value;
 
         string applicationBaseUrl = Configuration["BreakPointAppUrl"] ??
             throw new InvalidConfigurationException("BreakPointAppUrl is not configured");
-        if (string.IsNullOrEmpty(googleId) || string.IsNullOrEmpty(email))
+        if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(name))
         {
             return Redirect($"{applicationBaseUrl}/auth/error?message=missing_claims");
         }
@@ -69,39 +117,28 @@ public class AuthController(
         {
             var tokens = await TokenService.GenerateTokenAsync(user);
 
-            // Prepare response
-            var authResponse = new AuthorizationResponse
-            {
-                AccessToken = tokens.AccessToken,
-                RefreshToken = tokens.RefreshToken,
-                ExpiresAt = tokens.ExpiresAt,
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Email = user.Email!,
-                    Name = name ?? user.Email!,
-                    IsProfileComplete = user.IsProfileComplete
-                },
-            };
-
-            var redirectUrl = user.IsProfileComplete
-                ? $"{applicationBaseUrl}/profile"
-                : $"{applicationBaseUrl}/complete-profile";
-
             SetSecureTokenCookies(tokens);
 
-            return Redirect(redirectUrl);
-        }
-        catch (EmailAlreadyExistsException ex)
-        {
-            Logger.LogWarning(ex, "Email already exists during external provider login for email: {Email}", email);
-            return Redirect($"{applicationBaseUrl}/auth/error?message=email_exists");
+            return Redirect($"{applicationBaseUrl}/auth/complete");
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "Unexpected error during external provider login for email: {Email}", email);
             return Redirect($"{applicationBaseUrl}/auth/error?message=unexpected_error");
         }
+    }
+
+    #region Google Login
+    [HttpGet("google")]
+    [EndpointDescription("Begins the login using Google as the provided OAuth External Provider")]
+    public ChallengeResult BeginGoogleLogin()
+    {
+        var properties = new AuthenticationProperties { RedirectUri = Url.Action(nameof(HandleChallenge)) };
+
+        return Challenge(
+            properties,
+            GoogleDefaults.AuthenticationScheme
+        );
     }
 
     [HttpGet("google/callback")]
@@ -111,26 +148,8 @@ public class AuthController(
         await Task.CompletedTask;
         return Ok();
     }
+    #endregion
 
-    //[HttpPost("refresh")]
-    //public IActionResult RefreshToken([FromBody] RefreshTokenRequest refreshTokenRequest)
-    //{
-
-    //}
-
-    [Authorize]
-    [HttpPost("complete")]
-    public IActionResult CompleteProfile([FromBody] CompleteProfileRequest completeProfileRequest)
-    {
-        // get the Player id from the User
-        Player newPlayer = null!; // TODO: change to the user's player that was created previously during the handle back stage
-        newPlayer.DisplayName = completeProfileRequest.Name;
-        newPlayer.UstaRating = completeProfileRequest.UstaRating;
-        // save those
-        return Ok();
-    }
-
-    // Helper method for future provider support
     private async Task<AppUser?> FindOrCreateUserFromProvider(
         string email,
         string name
@@ -145,9 +164,10 @@ public class AuthController(
                 Email = email,
                 CreatedAt = DateTime.UtcNow,
                 IsProfileComplete = false,
+                DisplayName = name,
                 Player = new Player()
                 {
-                    DisplayName = name
+                    Name = name
                 },
                 EmailConfirmed = true, // External providers pre-verify emails
             };
@@ -157,12 +177,6 @@ public class AuthController(
             {
                 return null;
             }
-        }
-        else if (
-            user is not null
-        )
-        {
-            throw new EmailAlreadyExistsException();
         }
 
         return user;
@@ -187,12 +201,12 @@ public class AuthController(
         };
 
         // Set access token cookie
-        Response.Cookies.Append("access_token", tokens.AccessToken, cookieOptions);
+        Response.Cookies.Append(CodeLookUps.AccessTokenCookieKey, tokens.AccessToken, cookieOptions);
 
         // Set refresh token cookie
-        Response.Cookies.Append("refresh_token", tokens.RefreshToken, refreshCookieOptions);
+        Response.Cookies.Append(CodeLookUps.RefreshTokenCookieKey, tokens.RefreshToken, refreshCookieOptions);
 
-        Response.Cookies.Append("user_authenticated", "true", new CookieOptions
+        Response.Cookies.Append(CodeLookUps.IsAuthenticatedCookieKey, "true", new CookieOptions
         {
             Secure = true,
             SameSite = SameSiteMode.Strict,

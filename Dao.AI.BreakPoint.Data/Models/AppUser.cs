@@ -13,5 +13,6 @@ public class AppUser : IdentityUser
     // Refresh token storage for security
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiry { get; set; }
+    public string? DisplayName { get; set; }
     public Player Player { get; set; } = new();
 }

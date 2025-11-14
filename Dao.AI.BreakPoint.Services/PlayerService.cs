@@ -18,7 +18,7 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
         Player player = await playerRepository.GetByAppUserIdAsync(appUserId)
             ?? throw new NotFoundException($"Player with App User Id {appUserId}");
         player.UstaRating = completeProfileRequest.UstaRating;
-        player.DisplayName = completeProfileRequest.Name;
+        player.Name = completeProfileRequest.Name;
         player.AppUser!.IsProfileComplete = true;
         await playerRepository.UpdateAsync(player, appUserId);
         return true;

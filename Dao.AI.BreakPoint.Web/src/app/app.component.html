@@ -9,7 +9,9 @@
     <div>
       @if (authService.userInfo() != null){
       <a mat-list-item [routerLink]="['profile']">{{
-        authService.userInfo()?.name
+        authService.userInfo()!.displayName ??
+          authService.userInfo()!.email ??
+          "Profile"
       }}</a>
       } @else{
       <button mat-button (click)="authService.login()">Sign In</button>

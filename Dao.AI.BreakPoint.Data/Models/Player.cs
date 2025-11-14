@@ -11,7 +11,7 @@ public class Player : UpdatableModel
     /// </summary>
     public string? AppUserId { get; set; }
     public AppUser? AppUser { get; set; }
-    public string DisplayName { get; set; } = null!;
+    public string Name { get; set; } = null!;
 
     /// <summary>
     /// Rating as defined by the USTA

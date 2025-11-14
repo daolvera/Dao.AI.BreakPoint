@@ -1,7 +1,7 @@
 export interface UserDto {
   id: number;
-  email: string;
-  name: string;
+  email: string | null;
+  displayName: string | null;
   isProfileComplete: boolean;
   playerId: number | null;
 }

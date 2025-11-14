@@ -13,7 +13,7 @@ public class PlayerDto : CreatePlayerDto
         => new()
         {
             Id = player.Id,
-            Name = player.DisplayName,
+            Name = player.Name,
             Email = player.AppUser?.Email,
             EstimatedPlayerType = player.EstimatedPlayerType,
             CreatedAt = player.CreatedAt,
@@ -29,7 +29,7 @@ public class CreatePlayerDto : IBaseDto<Player>
     public Player ToModel()
         => new()
         {
-            DisplayName = Name
+            Name = Name
         };
 }
 
