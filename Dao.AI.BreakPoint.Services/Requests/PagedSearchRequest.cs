@@ -1,6 +1,6 @@
-﻿namespace Dao.AI.BreakPoint.Services.SearchParams;
+﻿namespace Dao.AI.BreakPoint.Services.Requests;
 
-public abstract class SearchParameters
+public abstract class PagedSearchRequest
 {
     public string? FuzzySearch { get; set; }
     public int? RequestedId { get; set; }

@@ -1,66 +1,70 @@
-using Dao.AI.BreakPoint.ApiService.Endpoints;
+using Dao.AI.BreakPoint.ApiService.Configuration;
 using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Services;
+using Microsoft.IdentityModel.Protocols.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
-
-// Add services to the container.
 builder.Services.AddProblemDetails();
 
-// Add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAngularApp", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
+    options.AddPolicy(
+        "AllowAngularApp",
+        policy =>
+        {
+            policy.WithOrigins(
+                builder.Configuration["BreakPointAppUrl"] ??
+                    throw new InvalidConfigurationException("BreakPointAppUrl is not configured")
+                ).AllowAnyMethod().AllowAnyHeader();
+        }
+    );
 });
 
-builder.Services.AddScoped<IAuthenticationService, DummyAuthenticationService>();
+builder.Services.AddControllers();
 builder.Services.AddBreakPointServices();
+builder.Services.AddBreakPointIdentityServices();
 
-// Add DbContext with MySQL
 builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");
 
-// Add Swagger/OpenAPI support
+builder.AddBreakPointAuthenticationAndAuthorization();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 app.UseExceptionHandler();
 
-// Use CORS
 app.UseCors("AllowAngularApp");
 
-// Add Swagger in development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "BreakPoint API V1");
+        c.RoutePrefix = string.Empty; // This makes Swagger UI available at the app's root
+    });
 }
 
-// Ensure database is created
+app.UseAuthentication();
+app.UseAuthorization();
+
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<BreakPointDbContext>();
-    context.Database.EnsureCreated();
-    if (app.Environment.IsDevelopment())
-    {
-        await Seeder.Seed(context);
-    }
+    await context.Database.EnsureCreatedAsync();
+    //if (app.Environment.IsDevelopment())
+    //{
+    //    await Seeder.SeedFakeData(context);
+    //}
 }
 
-// Map endpoints from separate files
-app.MapPlayerEndpoints();
-app.MapMatchEndpoints();
-app.MapSwingAnalysisEndpoints();
+app.MapControllers();
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))

@@ -7,6 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.Data\Dao.AI.BreakPoint.Data.csproj" />
   </ItemGroup>
 

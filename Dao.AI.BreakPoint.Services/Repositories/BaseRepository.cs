@@ -1,15 +1,15 @@
 ﻿using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Data.Models;
-using Dao.AI.BreakPoint.Services.SearchParams;
+using Dao.AI.BreakPoint.Services.Requests;
 using Microsoft.EntityFrameworkCore;
 
 namespace Dao.AI.BreakPoint.Services.Repositories;
 
 public abstract class BaseRepository<TEntity, TSearchParams>(BreakPointDbContext DbContext)
     where TEntity : BaseModel
-    where TSearchParams : SearchParameters
+    where TSearchParams : PagedSearchRequest
 {
-    public async Task<int> AddAsync(TEntity entity, int? appUserId)
+    public async Task<int> AddAsync(TEntity entity, string? appUserId)
     {
         entity.CreatedAt = DateTime.UtcNow;
         entity.CreatedByAppUserId = appUserId;
@@ -19,14 +19,14 @@ public abstract class BaseRepository<TEntity, TSearchParams>(BreakPointDbContext
         return entity.Id;
     }
 
-    public async Task<bool> UpdateAsync(TEntity entity, int? appUserId)
+    public async Task<bool> UpdateAsync(TEntity entity, string? appUserId)
     {
         UpdateTrackEntity(entity, appUserId);
         DbContext.Set<TEntity>().Update(entity);
         return (await DbContext.SaveChangesAsync()) > 0;
     }
 
-    private static void UpdateTrackEntity(TEntity entity, int? appUserId)
+    private static void UpdateTrackEntity(TEntity entity, string? appUserId)
     {
         if (entity is UpdatableModel updatableEntity)
         {
