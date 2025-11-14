@@ -52,6 +52,7 @@ public static class AuthenticationConfiguration
             {
                 options.ClientId = builder.Configuration["Authentication:Google:ClientId"]!;
                 options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+                options.CallbackPath = "/Auth/google/callback";
             });
 
         builder.Services.AddAuthorization();

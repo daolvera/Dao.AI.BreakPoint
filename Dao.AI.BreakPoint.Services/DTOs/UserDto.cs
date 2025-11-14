@@ -2,9 +2,9 @@
 
 public class UserDto
 {
-    public int Id { get; set; }
-    public string Email { get; set; } = null!;
-    public string Name { get; set; } = null!;
-    public bool IsProfileComplete { get; set; }
+    public required string Id { get; set; }
+    public required string Email { get; set; }
+    public required string Name { get; set; }
+    public required bool IsProfileComplete { get; set; }
     public int PlayerId { get; set; }
 }
