@@ -9,34 +9,15 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatureExtractorService)
 {
     public async Task<string> TrainTensorFlowModelAsync(
-        List<SwingData> trainingData,
-        TensorFlowTrainingConfiguration config,
-        int imageHeight,
-        int imageWidth
+        List<CleanedSwingData> trainingData,
+        TrainingConfiguration config
     )
     {
-        var labeledData = trainingData
-            .Select(swing => new
-            {
-                swing.Frames,
-                swing.OverallScore,
-                TechniqueAnalysis = TechniqueAnalyzer.AnalyzeSwing(
-                    swing.Frames,
-                    swing.ContactFrame
-                ),
-            })
-            .ToList();
+        // Extract frame sequences with consistent image dimensions
+        var batchSequences = ProcessFrameSequence(trainingData, config);
 
-        var batchSequences = ProcessFrameSequence(
-            [.. labeledData.Select(x => (x.Frames, x.OverallScore))],
-            config.SequenceLength,
-            imageHeight,
-            imageWidth
-        );
-
-        // Step 3: Prepare training targets
-        var overallScores = labeledData.Select(x => x.OverallScore).ToArray();
-        var techniqueScores = labeledData
+        var overallScores = trainingData.Select(x => x.OverallScore).ToArray();
+        var techniqueScores = trainingData
             .Select(x =>
                 new float[]
                 {
@@ -58,18 +39,19 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
                 )
             )
             .ToArray();
+        float[] ustaRatings = [.. trainingData.Select(x => (float)x.OverallScore)];
 
         NDArray inputArray = batchSequences.ConvertToNumpyArray();
-        var targetArray = concatenatedTargets.ConvertTargetsToNumpyArray();
+        var targetArray = ustaRatings.ConvertTargetsToNumpyArray();
 
         var model = SwingCnnModel.BuildSingleOutputModel(
             config.SequenceLength,
             config.NumFeatures,
-            config.IssueCategories.Length
+            outputSize: 1 // Single output for USTA rating prediction
         );
         SwingCnnModel.CompileModel(model, config.LearningRate);
 
-        Console.WriteLine("Training CNN model...");
+        Console.WriteLine("Training CNN model for USTA rating prediction...");
 
         var history = model.fit(
             inputArray,
@@ -87,20 +69,21 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
     }
 
     private float[,,] ProcessFrameSequence(
-        List<(List<FrameData> frames, float label)> trainingData,
-        int sequenceLength,
-        int imageHeight,
-        int imageWidth,
-        float deltaTime = 1 / 30f
+        List<CleanedSwingData> trainingData,
+        TrainingConfiguration config,
+        float deltaTime = 1f / 30f
     )
     {
-        int batchSize = trainingData.Count;
         int numFeatures = 66;
-        var batchSequences = new float[batchSize, sequenceLength, numFeatures];
+        var batchSequences = new float[config.BatchSize, trainingData.First().RawSwingData.FrameRate, numFeatures];
 
-        for (int batchIdx = 0; batchIdx < batchSize; batchIdx++)
+        for (int batchIdx = 0; batchIdx < config.BatchSize; batchIdx++)
         {
-            var frames = trainingData[batchIdx].frames;
+            var swingData = trainingData[batchIdx];
+            var frames = swingData.RawSwingData.Frames;
+            var imageHeight = swingData.RawSwingData.ImageHeight;
+            var imageWidth = swingData.RawSwingData.ImageWidth;
+
             var featuresList = new List<float[]>();
             Vector2[]? prev2Positions = null;
             Vector2[]? prevPositions = null;
@@ -129,16 +112,14 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
             }
 
             // Pad or truncate to fixed sequence length
-            for (int timeStep = 0; timeStep < sequenceLength; timeStep++)
+            for (int timeStep = 0; timeStep < swingData.RawSwingData.FrameRate; timeStep++)
             {
                 if (timeStep < featuresList.Count)
                 {
                     // Use actual frame data
                     for (int featIdx = 0; featIdx < numFeatures; featIdx++)
                     {
-                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[timeStep][
-                            featIdx
-                        ];
+                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[timeStep][featIdx];
                     }
                 }
                 else
@@ -147,9 +128,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
                     int lastFrameIdx = featuresList.Count - 1;
                     for (int featIdx = 0; featIdx < numFeatures; featIdx++)
                     {
-                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[lastFrameIdx][
-                            featIdx
-                        ];
+                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[lastFrameIdx][featIdx];
                     }
                 }
             }

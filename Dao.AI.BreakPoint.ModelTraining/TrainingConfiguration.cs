@@ -1,13 +1,14 @@
 ﻿namespace Dao.AI.BreakPoint.ModelTraining;
 
-internal class TrainingConfiguration
+public class TrainingConfiguration
 {
-    public int SequenceLength { get; set; } = 60;  // Fixed sequence length (2 seconds at 30fps)
-    public int BatchSize { get; set; } = 32;
-    public int Epochs { get; set; } = 100;
-    public float ValidationSplit { get; set; } = 0.2f;
-    public string VideoPath { get; set; } = "data";
+    public string VideoDirectory { get; set; } = "training_videos";
     public string InputModelPath { get; set; } = "movenet/saved_model.pb";
-    public string DatasetPath { get; set; } = "data/labeled_video_dataset.json";
-    public string TensorFlowModelPath { get; set; } = "swing_cnn_model.h5";
+    public string ModelOutputPath { get; set; } = "usta_swing_model.h5";
+    public int Epochs { get; set; } = 5;
+
+    public int BatchSize { get; set; } = 32;
+    public float ValidationSplit { get; set; } = 0.2f;
+    public float LearningRate { get; set; } = 0.001f;
+    public int NumFeatures { get; set; } = 66;
 }

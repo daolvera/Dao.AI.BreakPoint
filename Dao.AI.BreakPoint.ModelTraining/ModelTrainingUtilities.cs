@@ -6,7 +6,7 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 internal static class ModelTrainingUtilities
 {
     internal static float[] CreateConcatenatedTarget(
-        float overallScore,
+        double overallScore,
         TechniqueIssues techniqueAnalysis,
         string[] issueCategories
     )
@@ -14,7 +14,7 @@ internal static class ModelTrainingUtilities
         var target = new List<float>
         {
             // Overall score (1 value)
-            overallScore,
+            (float)overallScore,
 
             // Technique scores (5 values)
             techniqueAnalysis.ShoulderRotationScore,

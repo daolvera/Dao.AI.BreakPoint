@@ -3,17 +3,11 @@ using System.Numerics;
 
 namespace Dao.AI.BreakPoint.Services.MoveNet;
 
-public class MoveNetVideoProcessor : IDisposable
+public class MoveNetVideoProcessor(string modelPath) : IDisposable
 {
-    private readonly MoveNetInferenceService _inferenceService;
-    private readonly MoveNetPoseFeatureExtractorService _featureExtractor;
+    private readonly MoveNetInferenceService _inferenceService = new(modelPath);
+    private readonly MoveNetPoseFeatureExtractorService _featureExtractor = new();
     private const float MinCropKeypointScore = 0.2f;
-
-    public MoveNetVideoProcessor(string modelPath)
-    {
-        _inferenceService = new MoveNetInferenceService(modelPath);
-        _featureExtractor = new MoveNetPoseFeatureExtractorService();
-    }
 
     public List<FrameData> ProcessVideoFrames(List<byte[]> frameImages, int imageHeight, int imageWidth)
     {
@@ -23,7 +17,7 @@ public class MoveNetVideoProcessor : IDisposable
         for (int i = 0; i < frameImages.Count; i++)
         {
             // Run inference on cropped/resized image
-            var keypoints = RunInferenceWithCrop(frameImages[i], cropRegion, imageHeight, imageWidth);
+            var keypoints = RunInferenceWithCrop(frameImages[i], cropRegion);
 
             // Create frame data
             var frameData = new FrameData
@@ -41,11 +35,9 @@ public class MoveNetVideoProcessor : IDisposable
         return frames;
     }
 
-    private SwingPoseFeatures[] RunInferenceWithCrop(byte[] imageBytes, CropRegion cropRegion, int imageHeight, int imageWidth)
+    private SwingPoseFeatures[] RunInferenceWithCrop(byte[] imageBytes, CropRegion cropRegion)
     {
-        // For now, use dummy pose features since TensorFlow.NET implementation is incomplete
-        // TODO: Replace with actual inference when MoveNetInferenceService is fully implemented
-        var keypoints = _inferenceService.CreateDummyPoseFeatures();
+        var keypoints = _inferenceService.RunInference(imageBytes, cropRegion);
 
         // Update coordinates from crop region to original image coordinates
         // (similar to your Python run_inference function)
