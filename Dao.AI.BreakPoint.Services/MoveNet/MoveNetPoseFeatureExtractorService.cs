@@ -100,4 +100,12 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
 
         return features.ToArray();
     }
+    
+    /// <summary>
+    /// Get keypoint dictionary mapping from joint names to indices (matching Python KEYPOINT_DICT)
+    /// </summary>
+    public static Dictionary<string, int> GetKeypointDict()
+    {
+        return MoveNetVideoProcessor.GetKeypointDict();
+    }
 }

@@ -1,132 +1,160 @@
 ﻿using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
-using Microsoft.ML;
-using Microsoft.ML.Transforms;
 using System.Numerics;
+using Tensorflow.NumPy;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
-internal class SwingModelTrainingService(MLContext MlContext, IPoseFeatureExtractorService PoseFeatureExtractorService)
+internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatureExtractorService)
 {
-    /// <summary>
-    /// Train a regression model from video sequences
-    /// </summary>
-    public async Task<ITransformer> TrainRegressionModelAsync(
-        List<(List<FrameData> frames, float label)> trainingData,
-        TrainingConfiguration config,
+    public async Task<string> TrainTensorFlowModelAsync(
+        List<SwingData> trainingData,
+        TensorFlowTrainingConfiguration config,
         int imageHeight,
-        int imageWidth)
+        int imageWidth
+    )
     {
-        // Step 1: Process all sequences and extract features
-        List<SwingAnalyzerInput> allFeatures = [];
-
-        foreach (var (frames, label) in trainingData)
-        {
-            var rawFeatures = ProcessFrameSequence(frames, imageHeight, imageWidth);
-
-            // Add each frame as a training example
-            for (int i = 0; i < rawFeatures.GetLength(0); i++)
+        var labeledData = trainingData
+            .Select(swing => new
             {
-                var frameFeatures = new float[rawFeatures.GetLength(1)];
-                for (int j = 0; j < rawFeatures.GetLength(1); j++)
+                swing.Frames,
+                swing.OverallScore,
+                TechniqueAnalysis = TechniqueAnalyzer.AnalyzeSwing(
+                    swing.Frames,
+                    swing.ContactFrame
+                ),
+            })
+            .ToList();
+
+        var batchSequences = ProcessFrameSequence(
+            [.. labeledData.Select(x => (x.Frames, x.OverallScore))],
+            config.SequenceLength,
+            imageHeight,
+            imageWidth
+        );
+
+        // Step 3: Prepare training targets
+        var overallScores = labeledData.Select(x => x.OverallScore).ToArray();
+        var techniqueScores = labeledData
+            .Select(x =>
+                new float[]
                 {
-                    frameFeatures[j] = rawFeatures[i, j];
+                    x.TechniqueAnalysis.ShoulderRotationScore,
+                    x.TechniqueAnalysis.ContactPointScore,
+                    x.TechniqueAnalysis.PreparationTimingScore,
+                    x.TechniqueAnalysis.BalanceScore,
+                    x.TechniqueAnalysis.FollowThroughScore,
                 }
-
-                allFeatures.Add(new SwingAnalyzerInput
-                {
-                    Features = frameFeatures,
-                    Label = label
-                });
-            }
-        }
-
-        // Step 2: Create IDataView
-        var dataView = MlContext.Data.LoadFromEnumerable(allFeatures);
-
-        // Step 3: Split data
-        var split = MlContext.Data.TrainTestSplit(dataView, testFraction: 0.2);
-
-        // Step 4: Define pipeline
-        var pipeline = MlContext
-            // Handle missing values by replacing with mean
-            .Transforms.ReplaceMissingValues(
-                nameof(SwingAnalyzerInput.Features),
-                replacementMode: MissingValueReplacingEstimator.ReplacementMode.Mean
             )
-            // Normalize features
-            .Append(MlContext.Transforms.NormalizeMeanVariance(
-                nameof(SwingAnalyzerInput.Features)))
-            // Add the regression trainer
-            .Append(MlContext.Regression.Trainers.LbfgsPoissonRegression(
-                labelColumnName: nameof(SwingAnalyzerInput.Label),
-                featureColumnName: nameof(SwingAnalyzerInput.Features),
-                l1Regularization: config.LearningRate,
-                l2Regularization: config.LearningRate,
-                optimizationTolerance: 1e-7f,
-                historySize: config.HistorySize)
-            );
+            .ToArray();
 
-        // Step 5: Train
-        Console.WriteLine("Training model...");
-        var model = pipeline.Fit(split.TrainSet);
+        var concatenatedTargets = labeledData
+            .Select(x =>
+                ModelTrainingUtilities.CreateConcatenatedTarget(
+                    x.OverallScore,
+                    x.TechniqueAnalysis,
+                    config.IssueCategories
+                )
+            )
+            .ToArray();
 
-        // Step 6: Evaluate
-        var predictions = model.Transform(split.TestSet);
-        var metrics = MlContext.Regression.Evaluate(predictions,
-            labelColumnName: nameof(SwingAnalyzerInput.Label));
+        NDArray inputArray = batchSequences.ConvertToNumpyArray();
+        var targetArray = concatenatedTargets.ConvertTargetsToNumpyArray();
 
-        Console.WriteLine($"R²: {metrics.RSquared:0.##}");
-        Console.WriteLine($"RMSE: {metrics.RootMeanSquaredError:0.##}");
-        Console.WriteLine($"MAE: {metrics.MeanAbsoluteError:0.##}");
+        var model = SwingCnnModel.BuildSingleOutputModel(
+            config.SequenceLength,
+            config.NumFeatures,
+            config.IssueCategories.Length
+        );
+        SwingCnnModel.CompileModel(model, config.LearningRate);
 
-        // Step 7: Save model
-        MlContext.Model.Save(model, dataView.Schema, config.ModelOutputPath);
+        Console.WriteLine("Training CNN model...");
+
+        var history = model.fit(
+            inputArray,
+            targetArray,
+            batch_size: config.BatchSize,
+            epochs: config.Epochs,
+            validation_split: config.ValidationSplit,
+            verbose: 1
+        );
+
+        model.save(config.ModelOutputPath);
         Console.WriteLine($"Model saved to {config.ModelOutputPath}");
 
-        return model;
+        return config.ModelOutputPath;
     }
 
-    private float[,] ProcessFrameSequence(
-        List<FrameData> frames,
+    private float[,,] ProcessFrameSequence(
+        List<(List<FrameData> frames, float label)> trainingData,
+        int sequenceLength,
         int imageHeight,
         int imageWidth,
-        float deltaTime = 1 / 30f)
+        float deltaTime = 1 / 30f
+    )
     {
-        var featuresList = new List<float[]>();
-        Vector2[]? prev2Positions = null;
-        Vector2[]? prevPositions = null;
+        int batchSize = trainingData.Count;
+        int numFeatures = 66;
+        var batchSequences = new float[batchSize, sequenceLength, numFeatures];
 
-        foreach (var frame in frames)
+        for (int batchIdx = 0; batchIdx < batchSize; batchIdx++)
         {
-            var (currentPositions, confidences) = MoveNetPoseFeatureExtractorService.KeypointsToPixels(frame, imageHeight, imageWidth);
+            var frames = trainingData[batchIdx].frames;
+            var featuresList = new List<float[]>();
+            Vector2[]? prev2Positions = null;
+            Vector2[]? prevPositions = null;
 
-            var frameFeatures = PoseFeatureExtractorService.BuildFrameFeatures(
-                prev2Positions,
-                prevPositions,
-                currentPositions,
-                confidences,
-                deltaTime);
-
-            featuresList.Add(frameFeatures);
-
-            prev2Positions = prevPositions;
-            prevPositions = currentPositions;
-        }
-
-        int numFrames = featuresList.Count;
-        int numFeatures = featuresList[0].Length;
-        var featuresArray = new float[numFrames, numFeatures];
-
-        for (int i = 0; i < numFrames; i++)
-        {
-            for (int j = 0; j < numFeatures; j++)
+            foreach (var frame in frames)
             {
-                featuresArray[i, j] = featuresList[i][j];
+                var (currentPositions, confidences) =
+                    MoveNetPoseFeatureExtractorService.KeypointsToPixels(
+                        frame,
+                        imageHeight,
+                        imageWidth
+                    );
+
+                var frameFeatures = PoseFeatureExtractorService.BuildFrameFeatures(
+                    prev2Positions,
+                    prevPositions,
+                    currentPositions,
+                    confidences,
+                    deltaTime
+                );
+
+                featuresList.Add(frameFeatures);
+
+                prev2Positions = prevPositions;
+                prevPositions = currentPositions;
+            }
+
+            // Pad or truncate to fixed sequence length
+            for (int timeStep = 0; timeStep < sequenceLength; timeStep++)
+            {
+                if (timeStep < featuresList.Count)
+                {
+                    // Use actual frame data
+                    for (int featIdx = 0; featIdx < numFeatures; featIdx++)
+                    {
+                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[timeStep][
+                            featIdx
+                        ];
+                    }
+                }
+                else
+                {
+                    // Pad with last frame for shorter sequences
+                    int lastFrameIdx = featuresList.Count - 1;
+                    for (int featIdx = 0; featIdx < numFeatures; featIdx++)
+                    {
+                        batchSequences[batchIdx, timeStep, featIdx] = featuresList[lastFrameIdx][
+                            featIdx
+                        ];
+                    }
+                }
             }
         }
 
-        return featuresArray;
+        return batchSequences;
     }
 }

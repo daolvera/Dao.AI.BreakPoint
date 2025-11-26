@@ -9,6 +9,9 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />
+    <PackageReference Include="TensorFlow.NET" Version="0.150.0" />
+    <PackageReference Include="TensorFlow.Keras" Version="0.15.0" />
+    <PackageReference Include="SciSharp.TensorFlow.Redist" Version="2.16.0" />
   </ItemGroup>
 
   <ItemGroup>
