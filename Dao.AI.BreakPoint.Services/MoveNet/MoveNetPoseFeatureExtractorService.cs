@@ -63,7 +63,7 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
         {
             for (int i = 0; i < 17; i++)
             {
-                accelerations[i] = (currentPositions[i] - 2 * prevPositions[i] + prev2Positions[i]) / (deltaTime * deltaTime);
+                accelerations[i] = (currentPositions[i] - (2 * prevPositions[i]) + prev2Positions[i]) / (deltaTime * deltaTime);
             }
         }
 
@@ -99,13 +99,5 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
         }
 
         return features.ToArray();
-    }
-    
-    /// <summary>
-    /// Get keypoint dictionary mapping from joint names to indices (matching Python KEYPOINT_DICT)
-    /// </summary>
-    public static Dictionary<string, int> GetKeypointDict()
-    {
-        return MoveNetVideoProcessor.GetKeypointDict();
     }
 }

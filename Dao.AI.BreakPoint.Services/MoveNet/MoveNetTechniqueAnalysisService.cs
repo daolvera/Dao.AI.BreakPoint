@@ -22,7 +22,7 @@ public static class MoveNetTechniqueAnalysisService
             PreparationTimingScore = prepScore,
             BalanceScore = balanceScore,
             FollowThroughScore = followScore,
-            DetectedIssues = issues.ToArray(),
+            DetectedIssues = [.. issues],
         };
     }
 

@@ -1,5 +1,5 @@
+using Dao.AI.BreakPoint.Services.MoveNet;
 using OpenCvSharp;
-using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
 namespace Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
 
@@ -20,7 +20,7 @@ public class OpenCvVideoProcessor : IVideoProcessor
         }
 
         var frames = new List<byte[]>();
-        
+
         using var capture = new VideoCapture(videoPath);
         if (!capture.IsOpened())
         {
@@ -84,7 +84,7 @@ public class OpenCvVideoProcessor : IVideoProcessor
         }
 
         var frames = new List<byte[]>();
-        
+
         using var capture = new VideoCapture(videoPath);
         if (!capture.IsOpened())
         {

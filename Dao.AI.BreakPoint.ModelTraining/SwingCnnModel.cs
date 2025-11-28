@@ -5,15 +5,18 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 
 public static class SwingCnnModel
 {
+    /// <summary>
+    /// Build 1D CNN model for swing analysis with multiple technique outputs
+    /// Output: [overall_rating, shoulder_score, contact_score, prep_score, balance_score, follow_score]
+    /// </summary>
     public static IModel BuildSingleOutputModel(
         int sequenceLength,
-        int numFeatures,
-        int numIssueCategories
+        int numFeatures
     )
     {
         var input = keras.Input(shape: (sequenceLength, numFeatures));
 
-        // Shared CNN layers
+        // Shared CNN layers for feature extraction
         var conv1 = keras.layers.Conv1D(64, 3, activation: "relu", padding: "same").Apply(input);
         var pool1 = keras.layers.MaxPooling1D(2).Apply(conv1);
         var dropout1 = keras.layers.Dropout(0.3f).Apply(pool1);
@@ -34,15 +37,20 @@ public static class SwingCnnModel
         var dense = keras.layers.Dense(512, activation: "relu").Apply(dropout3);
         var dropout4 = keras.layers.Dropout(0.4f).Apply(dense);
 
-        // Single concatenated output:
-        // [overall_score, shoulder_score, contact_score, prep_score, balance_score, follow_score, issue1, issue2, ...]
-        var totalOutputs = 1 + 5 + numIssueCategories; // 1 overall + 5 technique + N issues
+        // Output layer: 6 values for different aspects of swing technique
+        // [overall_rating, shoulder_score, contact_score, prep_score, balance_score, follow_score]
+        var totalOutputs = 6;
         var output = keras.layers.Dense(totalOutputs, activation: "linear").Apply(dropout4);
 
         var model = keras.Model(inputs: input, outputs: output);
         return model;
     }
 
+    private static readonly string[] metrics = ["mae"];
+
+    /// <summary>
+    /// Compile model with appropriate loss functions and metrics
+    /// </summary>
     public static void CompileModel(IModel model, float learningRate = 0.001f)
     {
         var optimizer = keras.optimizers.Adam(learning_rate: learningRate);
@@ -50,7 +58,6 @@ public static class SwingCnnModel
         model.compile(
             optimizer: optimizer,
             loss: keras.losses.MeanSquaredError(),
-            metrics: ["mae"]
-        );
+            metrics: metrics);
     }
 }

@@ -47,6 +47,16 @@ public class MoveNetInferenceService : IDisposable
         return InferPoseFromImage(croppedImage, cropSize);
     }
 
+    public SwingPoseFeatures[] RunInference(byte[] imageBytes, CropRegion cropRegion, int cropSize = 256)
+    {
+        // Convert bytes to NDArray, then crop and resize
+        var imageArray = _imageProcessor.PreprocessImageBytes(imageBytes, cropSize);
+        var croppedImage = _imageProcessor.CropAndResize(imageArray, cropRegion, cropSize);
+
+        // Run inference on the cropped image
+        return InferPoseFromImage(croppedImage, cropSize);
+    }
+
     public void Dispose()
     {
         // Nothing to dispose in placeholder implementation

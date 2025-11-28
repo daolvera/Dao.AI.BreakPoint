@@ -1,7 +1,7 @@
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using System.Numerics;
 
-namespace Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
+namespace Dao.AI.BreakPoint.Services.MoveNet;
 
 public static class ContactFrameDetector
 {

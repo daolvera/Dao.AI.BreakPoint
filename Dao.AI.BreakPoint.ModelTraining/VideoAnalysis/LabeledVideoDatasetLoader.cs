@@ -14,15 +14,16 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
 
     /// <summary>
     /// Load training dataset from individual video/label files in a directory
+    /// Separate out the original video into swing segments
     /// </summary>
-    public async Task<List<RawSwingData>> ProcessVideoDirectoryAsync(string videoDirectory, string moveNetModelPath)
+    public async Task<List<ProcessedSwingVideo>> ProcessVideoDirectoryAsync(string videoDirectory, string moveNetModelPath)
     {
         if (!Directory.Exists(videoDirectory))
         {
             throw new DirectoryNotFoundException($"Video directory not found: {videoDirectory}");
         }
 
-        var swingDataList = new List<RawSwingData>();
+        var processedSwingVideos = new List<ProcessedSwingVideo>();
         var videoExtensions = new[] { ".mp4", ".avi", ".mov", ".mkv", ".webm" };
 
         var videoFiles = Directory.GetFiles(videoDirectory)
@@ -42,7 +43,7 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
                 Console.WriteLine($"Processing video: {Path.GetFileName(videoPath)} (USTA Rating: {label.UstaRating})");
 
                 // Extract frames from video
-                var frameImages = VideoProcessor.ExtractFrames(videoPath, maxFrames: 300);
+                var frameImages = VideoProcessor.ExtractFrames(videoPath);
 
                 if (frameImages.Count == 0)
                 {
@@ -53,24 +54,8 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
                 // Get video metadata
                 var metadata = VideoProcessor.GetVideoMetadata(videoPath);
 
-                // Process with MoveNet to get pose data
-                var frames = processor.ProcessVideoFrames(frameImages, metadata.Height, metadata.Width);
-
-                // Detect contact frame automatically
-                var contactFrame = ContactFrameDetector.DetectContactFrameAdvanced(frames, metadata.Height, metadata.Width);
-
-                // Create SwingData with USTA rating as overall score
-                var swingData = new RawSwingData
-                {
-                    Frames = frames,
-                    OverallScore = label.UstaRating,
-                    ContactFrame = contactFrame,
-                    ImageHeight = metadata.Height,
-                    ImageWidth = metadata.Width
-                };
-
-                swingDataList.Add(swingData);
-                Console.WriteLine($"Processed {frames.Count} frames, contact frame: {contactFrame}");
+                // Split the videos in the different swings and analyze them
+                processedSwingVideos.Add(processor.ProcessVideoFrames(frameImages, label, metadata));
             }
             catch (Exception ex)
             {
@@ -79,8 +64,8 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
             }
         }
 
-        Console.WriteLine($"Successfully processed {swingDataList.Count} videos from directory");
-        return swingDataList;
+        Console.WriteLine($"Successfully processed {processedSwingVideos.Count} videos from directory");
+        return processedSwingVideos;
     }
 
     /// <summary>

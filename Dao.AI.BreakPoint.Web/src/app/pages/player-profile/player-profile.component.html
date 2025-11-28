@@ -1,18 +1,19 @@
-@if (playerWithStats){
-<h1>{{ playerWithStats.name }}</h1>
-<div class="grid grid-cols-1 lg:grid-cols-3">
+@if (playerWithStats()){
+<h1>{{ playerWithStats()?.name }}</h1>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
   <!-- Player Profile Card -->
   <mat-card class="m-2 p-4">
     <mat-card-title>Player Profile</mat-card-title>
     <mat-card-content>
-      <p><strong>Name:</strong> {{ playerWithStats.name }}</p>
+      <p><strong>Name:</strong> {{ playerWithStats()?.name }}</p>
     </mat-card-content>
   </mat-card>
+
   <!-- Match Stats Card -->
   <mat-card class="m-2 p-4">
     <mat-card-title>Match Stats</mat-card-title>
     <mat-card-content>
-      <p><strong>Matches Won:</strong> {{ playerWithStats.matchesWon }}</p>
+      <p><strong>Matches Won:</strong> {{ playerWithStats()?.matchesWon }}</p>
     </mat-card-content>
   </mat-card>
 
@@ -20,10 +21,82 @@
   <mat-card class="m-2 p-4">
     <mat-card-title>Coaching History</mat-card-title>
     <mat-card-content>
-      @for (tip of playerWithStats.latestCoachingTips; track $index){
+      @for (tip of playerWithStats()?.latestCoachingTips; track $index){
       <p>{{ tip }}</p>
       } @empty {
       <p>No coaching tips available.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+</div>
+
+<!-- Tennis Swing Videos Section -->
+<div class="mt-8">
+  <mat-card class="p-4">
+    <mat-card-title class="flex justify-between items-center">
+      <span>Tennis Swing Videos</span>
+      <button mat-raised-button color="primary" (click)="toggleVideoUpload()">
+        <mat-icon>{{ showVideoUpload() ? "close" : "video_call" }}</mat-icon>
+        {{ showVideoUpload() ? "Cancel" : "Upload Video" }}
+      </button>
+    </mat-card-title>
+
+    <mat-card-content>
+      @if (showVideoUpload()) {
+      <div class="mt-4">
+        <app-video-upload
+          [playerId]="authService.userInfo()!.playerId!"
+          (videoUploaded)="onVideoUploaded($event)"
+        >
+        </app-video-upload>
+      </div>
+      } @if (playerVideos().length > 0) {
+      <div class="video-grid mt-4">
+        @for (video of playerVideos(); track video.id) {
+        <div class="video-item">
+          <div class="video-thumbnail">
+            @if (video.thumbnailUrl) {
+            <img
+              [src]="video.thumbnailUrl"
+              [alt]="video.fileName"
+              class="thumbnail-img"
+            />
+            } @else {
+            <div class="no-thumbnail">
+              <mat-icon>play_circle_filled</mat-icon>
+            </div>
+            }
+            <div class="video-duration">{{ video.duration }}s</div>
+          </div>
+
+          <div class="video-info">
+            <h4>{{ video.fileName }}</h4>
+            <p class="upload-date">
+              Uploaded: {{ formatDate(video.uploadDate) }}
+            </p>
+
+            <div class="video-actions">
+              <a mat-button color="primary" [href]="video.url" target="_blank">
+                <mat-icon>play_arrow</mat-icon>
+                Watch
+              </a>
+              <button mat-button color="warn" (click)="deleteVideo(video.id)">
+                <mat-icon>delete</mat-icon>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+        }
+      </div>
+      } @else if (!showVideoUpload()) {
+      <div class="no-videos">
+        <mat-icon>video_library</mat-icon>
+        <p>No tennis swing videos uploaded yet.</p>
+        <p class="text-sm text-gray-600">
+          Upload your first video to get personalized coaching feedback!
+        </p>
+      </div>
       }
     </mat-card-content>
   </mat-card>
