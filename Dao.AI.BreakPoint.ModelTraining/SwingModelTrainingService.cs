@@ -1,7 +1,4 @@
 ﻿using Dao.AI.BreakPoint.Services;
-using Dao.AI.BreakPoint.Services.MoveNet;
-using Dao.AI.BreakPoint.Services.SwingAnalyzer;
-using System.Numerics;
 using Tensorflow.NumPy;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
@@ -37,6 +34,7 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatureExtractorService)
 {
     private const float MIN_CONFIDENCE = 0.2f;
+    private readonly SwingPreprocessingService _preprocessingService = new(PoseFeatureExtractorService);
 
     public async Task<string> TrainTensorFlowModelAsync(
         List<TrainingSwingVideo> processedSwingVideos,
@@ -200,20 +198,30 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
         {
             foreach (var swing in video.SwingVideo.Swings)
             {
-                var processedSequence = await ProcessSwingSequenceAsync(swing, video.SwingVideo, config);
+                float[,]? processedSequence;
+                try
+                {
+                    processedSequence = await _preprocessingService.PreprocessSwingAsync(
+                        swing,
+                        video.SwingVideo,
+                        config.SequenceLength,
+                        config.NumFeatures);
+                }
+                catch
+                {
+                    continue;
+                }
                 if (processedSequence != null)
                 {
                     allInputSequences.Add(processedSequence);
-
-                    // Create target vector: [overall_rating, shoulder_score, contact_score, prep_score, balance_score, follow_score]
                     var targets = new float[]
                     {
-                        (float)video.TrainingLabel.UstaRating,  // Overall rating
-                        (float)video.TrainingLabel.UstaRating * 0.9f,  // Shoulder technique (slightly lower)
-                        (float)video.TrainingLabel.UstaRating * 0.95f, // Contact technique
-                        (float)video.TrainingLabel.UstaRating * 0.85f, // Preparation technique
-                        (float)video.TrainingLabel.UstaRating * 0.8f,  // Balance technique
-                        (float)video.TrainingLabel.UstaRating * 0.9f   // Follow-through technique
+                        (float)video.TrainingLabel.UstaRating,
+                        (float)video.TrainingLabel.UstaRating * 0.9f,
+                        (float)video.TrainingLabel.UstaRating * 0.95f,
+                        (float)video.TrainingLabel.UstaRating * 0.85f,
+                        (float)video.TrainingLabel.UstaRating * 0.8f,
+                        (float)video.TrainingLabel.UstaRating * 0.9f
                     };
                     allTargets.Add(targets);
                 }
@@ -225,115 +233,13 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
             throw new InvalidOperationException("No valid training sequences found in the provided data.");
         }
 
-        // Convert to NDArrays
         var inputArray = ConvertToNDArray(allInputSequences, config.SequenceLength, config.NumFeatures);
         var targetArray = ConvertTargetsToNDArray(allTargets);
 
         return (inputArray, targetArray);
     }
 
-    private async Task<float[,]?> ProcessSwingSequenceAsync(
-        SwingData swing,
-        ProcessedSwingVideo video,
-        TrainingConfiguration config)
-    {
-        try
-        {
-            var frameFeatures = new List<float[]>();
-            Vector2[]? prev2Positions = null;
-            Vector2[]? prevPositions = null;
-
-            foreach (var frame in swing.Frames)
-            {
-                var (currentPositions, confidences) = MoveNetPoseFeatureExtractorService.KeypointsToPixels(
-                    frame, video.ImageHeight, video.ImageWidth);
-
-                // Check if pose detection is reasonable
-                var validKeypoints = confidences.Count(c => c > MIN_CONFIDENCE);
-                if (validKeypoints < 8) // Need at least 8 keypoints with good confidence
-                {
-                    Console.WriteLine($"Warning: Frame has only {validKeypoints} valid keypoints out of 17");
-                    // Still process the frame but with degraded quality
-                }
-
-                // Build frame features using the pose feature extractor
-                var features = PoseFeatureExtractorService.BuildFrameFeatures(
-                    prev2Positions,
-                    prevPositions,
-                    currentPositions,
-                    confidences,
-                    1.0f / video.FrameRate);
-
-                // Validate features
-                if (features == null || features.Length != config.NumFeatures)
-                {
-                    Console.WriteLine($"Warning: Feature extraction produced {features?.Length ?? 0} features, expected {config.NumFeatures}");
-                    continue;
-                }
-
-                frameFeatures.Add(features);
-
-                // Update position history
-                prev2Positions = prevPositions;
-                prevPositions = currentPositions;
-            }
-
-            if (frameFeatures.Count == 0)
-            {
-                Console.WriteLine("Warning: No valid frame features extracted from swing");
-                return null;
-            }
-
-            if (frameFeatures.Count < config.SequenceLength / 3)
-            {
-                Console.WriteLine($"Warning: Swing has only {frameFeatures.Count} frames, might be too short for reliable analysis");
-                // Still process but flag as potentially problematic
-            }
-
-            return NormalizeAndPadSequence(frameFeatures, config);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error processing swing sequence: {ex.Message}");
-            return null;
-        }
-    }
-
-    private float[,] NormalizeAndPadSequence(List<float[]> frameFeatures, TrainingConfiguration config)
-    {
-        var sequenceLength = config.SequenceLength;
-        var numFeatures = config.NumFeatures;
-        var normalizedSequence = new float[sequenceLength, numFeatures];
-
-        // Pad or truncate to target sequence length
-        var actualLength = Math.Min(frameFeatures.Count, sequenceLength);
-
-        for (int frameIdx = 0; frameIdx < actualLength; frameIdx++)
-        {
-            var features = frameFeatures[frameIdx];
-            for (int featIdx = 0; featIdx < Math.Min(features.Length, numFeatures); featIdx++)
-            {
-                var value = features[featIdx];
-                // Handle NaN values by setting them to 0, and apply basic normalization
-                if (float.IsNaN(value) || float.IsInfinity(value))
-                {
-                    normalizedSequence[frameIdx, featIdx] = 0.0f;
-                }
-                else
-                {
-                    // Simple clipping to prevent extreme values
-                    normalizedSequence[frameIdx, featIdx] = Math.Max(-1000.0f, Math.Min(1000.0f, value));
-                }
-            }
-        }
-
-        // If sequence is shorter than required, the rest will remain 0 (padding)
-        // If sequence is longer, it gets truncated
-
-        return normalizedSequence;
-    }
-
-    private NDArray ConvertToNDArray(List<float[,]> sequences, int sequenceLength, int numFeatures)
+    private static NDArray ConvertToNDArray(List<float[,]> sequences, int sequenceLength, int numFeatures)
     {
         var batchSize = sequences.Count;
         var data = new float[batchSize, sequenceLength, numFeatures];
@@ -353,7 +259,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
         return np.array(data);
     }
 
-    private NDArray ConvertTargetsToNDArray(List<float[]> targets)
+    private static NDArray ConvertTargetsToNDArray(List<float[]> targets)
     {
         var batchSize = targets.Count;
         var numOutputs = targets[0].Length;

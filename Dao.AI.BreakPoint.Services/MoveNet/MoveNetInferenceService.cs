@@ -32,13 +32,12 @@ public class MoveNetInferenceService : IDisposable
         };
 
         using var results = InferenceSession.Run(inputs);
-        var output = results.First().AsEnumerable<float>().ToArray();
+        var output = results[0].AsEnumerable<float>().ToArray();
 
         // MoveNet output shape: [1, 1, 17, 3] (batch, person, keypoints, [y,x,confidence])
         // Parse output to SwingPoseFeatures[]
         var features = new List<SwingPoseFeatures>();
-        int keypoints = 17;
-        for (int i = 0; i < keypoints; i++)
+        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
         {
             int baseIdx = i * 3;
             features.Add(new SwingPoseFeatures
@@ -59,30 +58,14 @@ public class MoveNetInferenceService : IDisposable
 
         // Convert NDArray to byte array and then to int values (keeping 0-255 range)
         var byteData = imageArray.ToByteArray();
-        
+
         // Convert bytes to int values (0-255 stays as 0-255 integers)
         for (int i = 0; i < byteData.Length; i++)
         {
             tensor.Buffer.Span[i] = (int)byteData[i];
         }
-        
+
         return tensor;
-    }
-
-    public SwingPoseFeatures[] InferPoseFromImageBytes(byte[] imageBytes, int targetSize = 256)
-    {
-        // Load image and preprocess
-        var imageArray = _imageProcessor.PreprocessImageBytes(imageBytes, targetSize);
-        return InferPoseFromImage(imageArray, targetSize);
-    }
-
-    public SwingPoseFeatures[] RunInference(NDArray image, CropRegion cropRegion, int cropSize = 256)
-    {
-        // Crop and resize the image according to the crop region
-        var croppedImage = _imageProcessor.CropAndResize(image, cropRegion, cropSize);
-
-        // Run inference on the cropped image
-        return InferPoseFromImage(croppedImage, cropSize);
     }
 
     public SwingPoseFeatures[] RunInference(byte[] imageBytes, CropRegion cropRegion, int cropSize = 256)

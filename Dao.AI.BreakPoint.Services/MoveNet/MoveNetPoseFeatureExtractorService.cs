@@ -22,10 +22,10 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
     /// </summary>
     public static (Vector2[] positions, float[] confidences) KeypointsToPixels(FrameData frame, int height, int width)
     {
-        var positions = new Vector2[17];
-        var confidences = new float[17];
+        var positions = new Vector2[MoveNetVideoProcessor.NumKeyPoints];
+        var confidences = new float[MoveNetVideoProcessor.NumKeyPoints];
 
-        for (int i = 0; i < 17; i++)
+        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
         {
             positions[i] = frame.SwingPoseFeatures[i].ToPixelCoordinates(height, width);
             confidences[i] = frame.SwingPoseFeatures[i].Confidence;
@@ -48,12 +48,12 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
         List<float> features = [];
 
         // Compute velocities and accelerations
-        var velocities = new Vector2[17];
-        var accelerations = new Vector2[17];
+        var velocities = new Vector2[MoveNetVideoProcessor.NumKeyPoints];
+        var accelerations = new Vector2[MoveNetVideoProcessor.NumKeyPoints];
 
         if (prevPositions != null)
         {
-            for (int i = 0; i < 17; i++)
+            for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
             {
                 velocities[i] = (currentPositions[i] - prevPositions[i]) / deltaTime;
             }
@@ -61,7 +61,7 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
 
         if (prev2Positions != null && prevPositions != null)
         {
-            for (int i = 0; i < 17; i++)
+            for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
             {
                 accelerations[i] = (currentPositions[i] - (2 * prevPositions[i]) + prev2Positions[i]) / (deltaTime * deltaTime);
             }
@@ -90,7 +90,7 @@ public class MoveNetPoseFeatureExtractorService : IPoseFeatureExtractorService
         features.AddRange(angles);
 
         // Add flattened positions (masked by confidence)
-        for (int i = 0; i < 17; i++)
+        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
         {
             float x = confidences[i] < MIN_CONFIDENCE ? float.NaN : currentPositions[i].X;
             float y = confidences[i] < MIN_CONFIDENCE ? float.NaN : currentPositions[i].Y;

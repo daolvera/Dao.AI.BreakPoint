@@ -26,6 +26,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         {"left_ankle", 15},
         {"right_ankle", 16}
     };
+    public static int NumKeyPoints => KeypointDict.Count;
     private readonly MoveNetInferenceService _inferenceService = new(modelPath);
     private const float MinCropKeypointScore = 0.2f;
 
@@ -357,7 +358,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         var keypoints = _inferenceService.RunInference(imageBytes, cropRegion);
 
         // Update coordinates from crop region to original image coordinates
-        for (int idx = 0; idx < 17; idx++)
+        for (int idx = 0; idx < MoveNetVideoProcessor.NumKeyPoints; idx++)
         {
             keypoints[idx].Y = cropRegion.YMin + (cropRegion.Height * keypoints[idx].Y);
             keypoints[idx].X = cropRegion.XMin + (cropRegion.Width * keypoints[idx].X);
