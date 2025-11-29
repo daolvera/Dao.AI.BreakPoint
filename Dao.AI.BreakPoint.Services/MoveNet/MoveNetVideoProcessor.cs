@@ -31,7 +31,6 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
 
     public ProcessedSwingVideo ProcessVideoFrames(
         List<byte[]> frameImages,
-        VideoLabel videoLabel,
         VideoMetadata videoMetadata)
     {
         List<SwingData> swings = [];
@@ -40,15 +39,14 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         List<FrameData> currentSwingFrames = [];
         bool lookForPrep = true;
         int framesSinceLastSwing = 0;
-        const int minFramesBetweenSwings = 30; // Minimum 1 second between swings at 30 FPS
 
         foreach (var frame in frameImages)
         {
             framesSinceLastSwing++;
-            
+
             // Run inference on cropped/resized image
             var keypoints = RunInferenceWithCrop(frame, cropRegion);
-            
+
             // Check if this frame is during a swing
             if (!IsFrameDuringSwing(keypoints, currentSwingFrames, lookForPrep))
             {
@@ -61,11 +59,11 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
                         var contactFrame = ContactFrameDetector.DetectContactFrameAdvanced(currentSwingFrames, videoMetadata.Height, videoMetadata.Width);
                         swings.Add(new SwingData
                         {
-                            Frames = new List<FrameData>(currentSwingFrames),
+                            Frames = [.. currentSwingFrames],
                             ContactFrameIndex = contactFrame
                         });
                     }
-                    
+
                     currentSwingFrames.Clear();
                     lookForPrep = true;
                     cropRegion = CropRegion.InitCropRegion(videoMetadata.Height, videoMetadata.Width);
@@ -74,7 +72,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
             }
 
             var phase = DetermineSwingPhase(keypoints);
-            
+
             // Reset prep flag when we leave preparation phase
             if (phase != SwingPhase.Preparation)
             {
@@ -92,17 +90,17 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
 
             // Update crop region for next frame (tracking)
             cropRegion = DetermineCropRegion(keypoints, videoMetadata.Height, videoMetadata.Width);
-            
+
             // Check if swing is complete
             if (IsSwingComplete(currentSwingFrames))
             {
                 var contactFrame = ContactFrameDetector.DetectContactFrameAdvanced(currentSwingFrames, videoMetadata.Height, videoMetadata.Width);
                 swings.Add(new SwingData
                 {
-                    Frames = new List<FrameData>(currentSwingFrames),
+                    Frames = [.. currentSwingFrames],
                     ContactFrameIndex = contactFrame
                 });
-                
+
                 currentSwingFrames.Clear();
                 lookForPrep = true;
                 framesSinceLastSwing = 0;
@@ -124,7 +122,6 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         return new ProcessedSwingVideo
         {
             Swings = swings,
-            UstaRating = videoLabel.UstaRating,
             ImageHeight = videoMetadata.Height,
             ImageWidth = videoMetadata.Width,
             FrameRate = videoMetadata.FrameRate
@@ -183,7 +180,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         {
             float dx = leftShoulder.X - leftWrist.X;
             float dy = leftShoulder.Y - leftWrist.Y;
-            armActivity += (float)Math.Sqrt(dx * dx + dy * dy);
+            armActivity += (float)Math.Sqrt((dx * dx) + (dy * dy));
             validArms++;
         }
 
@@ -192,7 +189,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         {
             float dx = rightShoulder.X - rightWrist.X;
             float dy = rightShoulder.Y - rightWrist.Y;
-            armActivity += (float)Math.Sqrt(dx * dx + dy * dy);
+            armActivity += (float)Math.Sqrt((dx * dx) + (dy * dy));
             validArms++;
         }
 

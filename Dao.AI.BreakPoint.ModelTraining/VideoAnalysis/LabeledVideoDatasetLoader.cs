@@ -1,10 +1,10 @@
 ﻿using Dao.AI.BreakPoint.Services.MoveNet;
-using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using Dao.AI.BreakPoint.Services.VideoProcessing;
 using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
 
-public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDatasetLoader
+internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingService) : ITrainingDatasetLoader
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
@@ -16,14 +16,14 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
     /// Load training dataset from individual video/label files in a directory
     /// Separate out the original video into swing segments
     /// </summary>
-    public async Task<List<ProcessedSwingVideo>> ProcessVideoDirectoryAsync(string videoDirectory, string moveNetModelPath)
+    public async Task<List<TrainingSwingVideo>> ProcessVideoDirectoryAsync(string videoDirectory, string moveNetModelPath)
     {
         if (!Directory.Exists(videoDirectory))
         {
             throw new DirectoryNotFoundException($"Video directory not found: {videoDirectory}");
         }
 
-        var processedSwingVideos = new List<ProcessedSwingVideo>();
+        var processedTrainingSwingVideos = new List<TrainingSwingVideo>();
         var videoExtensions = new[] { ".mp4", ".avi", ".mov", ".mkv", ".webm" };
 
         var videoFiles = Directory.GetFiles(videoDirectory)
@@ -43,7 +43,7 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
                 Console.WriteLine($"Processing video: {Path.GetFileName(videoPath)} (USTA Rating: {label.UstaRating})");
 
                 // Extract frames from video
-                var frameImages = VideoProcessor.ExtractFrames(videoPath);
+                var frameImages = VideoProcessingService.ExtractFrames(videoPath);
 
                 if (frameImages.Count == 0)
                 {
@@ -52,10 +52,14 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
                 }
 
                 // Get video metadata
-                var metadata = VideoProcessor.GetVideoMetadata(videoPath);
+                var metadata = VideoProcessingService.GetVideoMetadata(videoPath);
 
                 // Split the videos in the different swings and analyze them
-                processedSwingVideos.Add(processor.ProcessVideoFrames(frameImages, label, metadata));
+                processedTrainingSwingVideos.Add(new()
+                {
+                    TrainingLabel = label,
+                    SwingVideo = processor.ProcessVideoFrames(frameImages, metadata),
+                });
             }
             catch (Exception ex)
             {
@@ -64,8 +68,8 @@ public class TrainingDatasetLoader(IVideoProcessor VideoProcessor) : ITrainingDa
             }
         }
 
-        Console.WriteLine($"Successfully processed {processedSwingVideos.Count} videos from directory");
-        return processedSwingVideos;
+        Console.WriteLine($"Successfully processed {processedTrainingSwingVideos.Count} videos from directory");
+        return processedTrainingSwingVideos;
     }
 
     /// <summary>

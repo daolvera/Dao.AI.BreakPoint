@@ -1,16 +1,9 @@
-using Dao.AI.BreakPoint.Services.MoveNet;
+﻿using Dao.AI.BreakPoint.Services.MoveNet;
 using OpenCvSharp;
 
-namespace Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
+namespace Dao.AI.BreakPoint.Services.VideoProcessing;
 
-public interface IVideoProcessor
-{
-    List<byte[]> ExtractFrames(string videoPath, int maxFrames = -1, int skipFrames = 0);
-    VideoMetadata GetVideoMetadata(string videoPath);
-    List<byte[]> ExtractFrameRange(string videoPath, int startFrame, int endFrame);
-}
-
-public class OpenCvVideoProcessor : IVideoProcessor
+public class OpenCvVideoProcessingService : IVideoProcessingService
 {
     public List<byte[]> ExtractFrames(string videoPath, int maxFrames = -1, int skipFrames = 0)
     {

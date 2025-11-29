@@ -23,7 +23,7 @@ public class MoveNetInferenceService : IDisposable
 
     public SwingPoseFeatures[] InferPoseFromImage(NDArray imageArray, int targetSize = 256)
     {
-        // Convert NDArray to float tensor (assuming imageArray is [H,W,C] and normalized)
+        // Convert NDArray to int tensor (model expects Int32 input)
         var inputTensor = ToOnnxTensor(imageArray, targetSize);
 
         var inputs = new List<NamedOnnxValue>
@@ -48,21 +48,24 @@ public class MoveNetInferenceService : IDisposable
                 Confidence = output[baseIdx + 2]
             });
         }
-        return features.ToArray();
+        return [.. features];
     }
 
-    private static DenseTensor<float> ToOnnxTensor(NDArray imageArray, int targetSize)
+    private static DenseTensor<int> ToOnnxTensor(NDArray imageArray, int targetSize)
     {
-        // Assumes imageArray is float32, shape [targetSize, targetSize, 3], normalized 0-1
+        // Model expects Int32 input, shape [1, targetSize, targetSize, 3], values 0-255
         var shape = new[] { 1, targetSize, targetSize, 3 };
-        var tensor = new DenseTensor<float>(shape);
+        var tensor = new DenseTensor<int>(shape);
 
-        var flat = imageArray.ravel().astype(np.float32).ToArray<float>();
-
-        for (int i = 0; i < flat.Length; i++)
+        // Convert NDArray to byte array and then to int values (keeping 0-255 range)
+        var byteData = imageArray.ToByteArray();
+        
+        // Convert bytes to int values (0-255 stays as 0-255 integers)
+        for (int i = 0; i < byteData.Length; i++)
         {
-            tensor.Buffer.Span[i] = flat[i];
+            tensor.Buffer.Span[i] = (int)byteData[i];
         }
+        
         return tensor;
     }
 

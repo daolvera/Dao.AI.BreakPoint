@@ -39,7 +39,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
     private const float MIN_CONFIDENCE = 0.2f;
 
     public async Task<string> TrainTensorFlowModelAsync(
-        List<ProcessedSwingVideo> processedSwingVideos,
+        List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config
     )
     {
@@ -94,7 +94,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
         }
     }
 
-    private static void ValidateTrainingInputs(List<ProcessedSwingVideo> videos, TrainingConfiguration? config)
+    private static void ValidateTrainingInputs(List<TrainingSwingVideo> videos, TrainingConfiguration? config)
     {
         if (videos.Count == 0)
         {
@@ -107,21 +107,21 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
         var totalSwings = 0;
         var validVideos = 0;
 
-        foreach (var video in videos)
+        foreach (var trainingVideo in videos)
         {
-            if (video.UstaRating < 1.0 || video.UstaRating > 7.0)
+            if (trainingVideo.TrainingLabel.UstaRating < 1.0 || trainingVideo.TrainingLabel.UstaRating > 7.0)
             {
-                Console.WriteLine($"Warning: Video has invalid USTA rating {video.UstaRating}. Should be between 1.0 and 7.0.");
+                Console.WriteLine($"Warning: Video has invalid USTA rating {trainingVideo.TrainingLabel.UstaRating}. Should be between 1.0 and 7.0.");
                 continue;
             }
 
-            if (video.Swings == null || video.Swings.Count == 0)
+            if (trainingVideo.SwingVideo.Swings == null || trainingVideo.SwingVideo.Swings.Count == 0)
             {
                 Console.WriteLine("Warning: Video contains no swing data.");
                 continue;
             }
 
-            foreach (var swing in video.Swings)
+            foreach (var swing in trainingVideo.SwingVideo.Swings)
             {
                 if (swing.Frames == null || swing.Frames.Count == 0)
                 {
@@ -130,9 +130,9 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
                 }
 
                 // Check if swing has reasonable number of frames (at least 1 second)
-                if (swing.Frames.Count < video.FrameRate)
+                if (swing.Frames.Count < trainingVideo.SwingVideo.FrameRate)
                 {
-                    Console.WriteLine($"Warning: Swing has only {swing.Frames.Count} frames, expected at least {video.FrameRate}.");
+                    Console.WriteLine($"Warning: Swing has only {swing.Frames.Count} frames, expected at least {trainingVideo.SwingVideo.FrameRate}.");
                 }
 
                 totalSwings++;
@@ -190,7 +190,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
     }
 
     private async Task<(NDArray inputArray, NDArray targetArray)> PreprocessTrainingDataAsync(
-        List<ProcessedSwingVideo> processedSwingVideos,
+        List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config)
     {
         var allInputSequences = new List<float[,]>();
@@ -198,9 +198,9 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
 
         foreach (var video in processedSwingVideos)
         {
-            foreach (var swing in video.Swings)
+            foreach (var swing in video.SwingVideo.Swings)
             {
-                var processedSequence = await ProcessSwingSequenceAsync(swing, video, config);
+                var processedSequence = await ProcessSwingSequenceAsync(swing, video.SwingVideo, config);
                 if (processedSequence != null)
                 {
                     allInputSequences.Add(processedSequence);
@@ -208,12 +208,12 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
                     // Create target vector: [overall_rating, shoulder_score, contact_score, prep_score, balance_score, follow_score]
                     var targets = new float[]
                     {
-                        (float)video.UstaRating,  // Overall rating
-                        (float)video.UstaRating * 0.9f,  // Shoulder technique (slightly lower)
-                        (float)video.UstaRating * 0.95f, // Contact technique
-                        (float)video.UstaRating * 0.85f, // Preparation technique
-                        (float)video.UstaRating * 0.8f,  // Balance technique
-                        (float)video.UstaRating * 0.9f   // Follow-through technique
+                        (float)video.TrainingLabel.UstaRating,  // Overall rating
+                        (float)video.TrainingLabel.UstaRating * 0.9f,  // Shoulder technique (slightly lower)
+                        (float)video.TrainingLabel.UstaRating * 0.95f, // Contact technique
+                        (float)video.TrainingLabel.UstaRating * 0.85f, // Preparation technique
+                        (float)video.TrainingLabel.UstaRating * 0.8f,  // Balance technique
+                        (float)video.TrainingLabel.UstaRating * 0.9f   // Follow-through technique
                     };
                     allTargets.Add(targets);
                 }

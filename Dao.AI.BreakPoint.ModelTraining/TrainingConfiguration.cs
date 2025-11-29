@@ -4,7 +4,7 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 
 public class TrainingConfiguration
 {
-    public string VideoDirectory { get; set; } = "training_videos";
+    public string VideoDirectory { get; set; } = "data";
     public string InputModelPath { get; set; } = "movenet/saved_model.pb";
     public string ModelOutputPath { get; set; } = "usta_swing_model.h5";
     [Range(1, int.MaxValue, ErrorMessage = "The {0} field must be a positive integer.")]
