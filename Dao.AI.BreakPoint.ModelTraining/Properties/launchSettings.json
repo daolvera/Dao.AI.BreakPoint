@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Dao.AI.BreakPoint.ModelTraining": {
+      "commandName": "Project",
+      "commandLineArgs": "-d \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.ModelTraining\\data\" -m \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\movenet_output_model.onnx\" -i \"C:\\Users\\dancd\\Downloads\\sinnerFrames\""
+    }
+  }
+}

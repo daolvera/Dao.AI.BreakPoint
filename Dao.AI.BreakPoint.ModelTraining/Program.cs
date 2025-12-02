@@ -16,6 +16,31 @@ internal class Program
             return; // Help was displayed or parsing failed
         }
 
+        if (options.IsTestingHeuristicFeatures)
+        {
+            if (!Directory.Exists(options.ImageDirectory))
+            {
+                throw new DirectoryNotFoundException($"test images directory not found: {options.ImageDirectory}");
+            }
+            var testImagePaths = Directory.GetFiles(options.ImageDirectory)
+                .ToArray();
+            List<byte[]> testImages = [];
+            foreach (var testImage in testImagePaths)
+            {
+                var imageBytes = await File.ReadAllBytesAsync(testImage);
+                testImages.Add(imageBytes);
+            }
+            using var processor = new MoveNetVideoProcessor(options.InputModelPath);
+            var processedVideo = processor.ProcessVideoFrames(testImages, new()
+            {
+                Width = 1920,
+                Height = 1080,
+                FrameRate = 30,
+                TotalFrames = testImages.Count
+            });
+            return;
+        }
+
         TrainingDatasetLoader datasetLoader = new(new OpenCvVideoProcessingService());
 
         if (string.IsNullOrEmpty(options.VideoDirectory) || !Directory.Exists(options.VideoDirectory))
@@ -79,6 +104,10 @@ internal class Program
                 case "--output":
                 case "-o":
                     options.ModelOutputPath = getNextArg();
+                    break;
+                case "--image":
+                case "-i":
+                    options.ImageDirectory = getNextArg();
                     break;
                 case "--help":
                 case "-h":

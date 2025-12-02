@@ -14,6 +14,8 @@ public class TrainingConfiguration
     public int BatchSize { get; set; } = 32;
     public float ValidationSplit { get; set; } = 0.2f;
     public float LearningRate { get; set; } = 0.001f;
+    public string? ImageDirectory { get; set; }
+    public bool IsTestingHeuristicFeatures => ImageDirectory is not null;
 
     /// <summary>
     /// Number of features per frame (based on MoveNet pose features)

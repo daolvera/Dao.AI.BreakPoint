@@ -4,5 +4,6 @@ public enum SwingPhase
 {
     Preparation,
     Backswing,
+    Swing,
     FollowThrough,
 }
