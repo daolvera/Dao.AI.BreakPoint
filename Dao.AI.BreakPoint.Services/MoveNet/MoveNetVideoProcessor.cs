@@ -62,11 +62,25 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
 
             var angles = _inferenceService.ComputeJointAngles(keypoints, videoMetadata.Height, videoMetadata.Width);
 
-            var phase = DetermineSwingPhase(keypoints);
+            var phase = DetermineSwingPhase(keypoints, angles);
             if (phase == SwingPhase.Preparation)
             {
                 continue;
             }
+
+            var currentFrame = new FrameData
+            {
+                Joints = keypoints,
+                SwingPhase = phase,
+                LeftElbowAngle = angles[0],
+                RightElbowAngle = angles[1],
+                LeftShoulderAngle = angles[2],
+                RightShoulderAngle = angles[3],
+                LeftHipAngle = angles[4],
+                RightHipAngle = angles[5],
+                LeftKneeAngle = angles[6],
+                RightKneeAngle = angles[7]
+            };
 
             if (IsSwingComplete(currentSwingFrames, phase))
             {
@@ -87,20 +101,6 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
             {
                 continue;
             }
-
-            var currentFrame = new FrameData
-            {
-                Joints = keypoints,
-                SwingPhase = phase,
-                LeftElbowAngle = angles[0],
-                RightElbowAngle = angles[1],
-                LeftShoulderAngle = angles[2],
-                RightShoulderAngle = angles[3],
-                LeftHipAngle = angles[4],
-                RightHipAngle = angles[5],
-                LeftKneeAngle = angles[6],
-                RightKneeAngle = angles[7]
-            };
 
             currentSwingFrames.Add(currentFrame);
 
