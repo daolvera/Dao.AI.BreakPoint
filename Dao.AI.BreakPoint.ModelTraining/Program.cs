@@ -57,8 +57,7 @@ internal class Program
             return;
         }
 
-        var poseExtractor = new MoveNetPoseFeatureExtractorService();
-        var trainingService = new SwingModelTrainingService(poseExtractor);
+        var trainingService = new SwingModelTrainingService();
 
         if (options.BatchSize > processedSwingVideos.Count)
         {

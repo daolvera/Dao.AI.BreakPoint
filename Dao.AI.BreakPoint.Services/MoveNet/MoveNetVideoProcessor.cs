@@ -4,27 +4,27 @@ using System.Numerics;
 
 namespace Dao.AI.BreakPoint.Services.MoveNet;
 
-public class MoveNetVideoProcessor(string modelPath) : IDisposable
+public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
 {
-    public static readonly Dictionary<string, int> KeypointDict = new()
+    public static readonly Dictionary<JointFeatures, int> KeypointDict = new()
     {
-        {"nose", 0},
-        {"left_eye", 1},
-        {"right_eye", 2},
-        {"left_ear", 3},
-        {"right_ear", 4},
-        {"left_shoulder", 5},
-        {"right_shoulder", 6},
-        {"left_elbow", 7},
-        {"right_elbow", 8},
-        {"left_wrist", 9},
-        {"right_wrist", 10},
-        {"left_hip", 11},
-        {"right_hip", 12},
-        {"left_knee", 13},
-        {"right_knee", 14},
-        {"left_ankle", 15},
-        {"right_ankle", 16}
+        {JointFeatures.Nose, 0},
+        {JointFeatures.LeftEye, 1},
+        {JointFeatures.RightEye, 2},
+        {JointFeatures.LeftEar, 3},
+        {JointFeatures.RightEar, 4},
+        {JointFeatures.LeftShoulder, 5},
+        {JointFeatures.RightShoulder, 6},
+        {JointFeatures.LeftElbow, 7},
+        {JointFeatures.RightElbow, 8},
+        {JointFeatures.LeftWrist, 9},
+        {JointFeatures.RightWrist, 10},
+        {JointFeatures.LeftHip, 11},
+        {JointFeatures.RightHip, 12},
+        {JointFeatures.LeftKnee, 13},
+        {JointFeatures.RightKnee, 14},
+        {JointFeatures.LeftAnkle, 15},
+        {JointFeatures.RightAnkle, 16}
     };
     public static int NumKeyPoints => KeypointDict.Count;
     private readonly MoveNetInferenceService _inferenceService = new(modelPath);
@@ -41,68 +41,80 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         List<FrameData> currentSwingFrames = [];
         int framesSinceLastSwing = 0;
 
+        float deltaTime = 1.0f / videoMetadata.FrameRate;
+
+        FrameData? prev2Frame = null;
+        FrameData? prevFrame = null;
+
         for (int frameIndex = 0; frameIndex < frameImages.Count; frameIndex++)
         {
             var frame = frameImages[frameIndex];
             framesSinceLastSwing++;
 
-            // Run inference on cropped/resized image
-            var keypoints = RunInferenceWithCrop(frame, cropRegion);
+            var keypoints = _inferenceService.RunInference(
+                frame,
+                cropRegion,
+                videoMetadata.Height,
+                videoMetadata.Width,
+                prevFrame,
+                prev2Frame,
+                deltaTime);
+
+            var angles = _inferenceService.ComputeJointAngles(keypoints, videoMetadata.Height, videoMetadata.Width);
 
             var phase = DetermineSwingPhase(keypoints);
             if (phase == SwingPhase.Preparation)
             {
-                // Not yet in swing, skip frame
                 continue;
             }
-            // Check if swing is complete
+
             if (IsSwingComplete(currentSwingFrames, phase))
             {
-                var contactFrame = ContactFrameDetector
-                    .DetectContactFrameAdvanced(
-                        currentSwingFrames,
-                        videoMetadata.Height,
-                        videoMetadata.Width
-                    );
                 swings.Add(new SwingData
                 {
-                    Frames = [.. currentSwingFrames],
-                    ContactFrameIndex = contactFrame
+                    Frames = [.. currentSwingFrames]
                 });
 
                 currentSwingFrames.Clear();
                 framesSinceLastSwing = 0;
                 cropRegion = CropRegion.InitCropRegion(videoMetadata.Height, videoMetadata.Width);
+                prev2Frame = null;
+                prevFrame = null;
                 continue;
             }
-            // Check if this frame is during a swing
+
             if (!IsFrameDuringSwing(keypoints, currentSwingFrames, phase))
             {
-                // prepping for next swing
                 continue;
             }
 
-            // Create frame data
-            var frameData = new FrameData
+            var currentFrame = new FrameData
             {
-                SwingPoseFeatures = keypoints,
-                SwingPhase = phase
+                Joints = keypoints,
+                SwingPhase = phase,
+                LeftElbowAngle = angles[0],
+                RightElbowAngle = angles[1],
+                LeftShoulderAngle = angles[2],
+                RightShoulderAngle = angles[3],
+                LeftHipAngle = angles[4],
+                RightHipAngle = angles[5],
+                LeftKneeAngle = angles[6],
+                RightKneeAngle = angles[7]
             };
 
-            currentSwingFrames.Add(frameData);
+            currentSwingFrames.Add(currentFrame);
 
-            // Update crop region for next frame (tracking)
             cropRegion = DetermineCropRegion(keypoints, videoMetadata.Height, videoMetadata.Width);
+
+            prev2Frame = prevFrame;
+            prevFrame = currentFrame;
         }
 
-        // Handle any remaining swing in progress
         if (currentSwingFrames.Count >= 15)
         {
-            var contactFrame = ContactFrameDetector.DetectContactFrameAdvanced(currentSwingFrames, videoMetadata.Height, videoMetadata.Width);
             swings.Add(new SwingData
             {
-                Frames = currentSwingFrames,
-                ContactFrameIndex = contactFrame
+                Frames = currentSwingFrames
             });
         }
 
@@ -132,17 +144,17 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
     }
 
     private static bool IsFrameDuringSwing(
-        SwingPoseFeatures[] keypoints,
+        JointData[] keypoints,
         List<FrameData> currentSwingFrames,
         SwingPhase swingPhase)
     {
         // Check if key tennis swing joints are visible with sufficient confidence
-        var leftShoulder = keypoints[KeypointDict["left_shoulder"]];
-        var rightShoulder = keypoints[KeypointDict["right_shoulder"]];
-        var leftElbow = keypoints[KeypointDict["left_elbow"]];
-        var rightElbow = keypoints[KeypointDict["right_elbow"]];
-        var leftWrist = keypoints[KeypointDict["left_wrist"]];
-        var rightWrist = keypoints[KeypointDict["right_wrist"]];
+        var leftShoulder = keypoints[(int)JointFeatures.LeftShoulder];
+        var rightShoulder = keypoints[(int)JointFeatures.RightShoulder];
+        var leftElbow = keypoints[(int)JointFeatures.LeftElbow];
+        var rightElbow = keypoints[(int)JointFeatures.RightElbow];
+        var leftWrist = keypoints[(int)JointFeatures.LeftWrist];
+        var rightWrist = keypoints[(int)JointFeatures.RightWrist];
 
         // Check if upper body is visible (essential for swing detection)
         bool upperBodyVisible = (leftShoulder.Confidence > MinConfidence || rightShoulder.Confidence > MinConfidence) &&
@@ -181,15 +193,15 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
     }
 
     private static SwingPhase DetermineSwingPhase(
-        SwingPoseFeatures[] keypoints)
+        JointData[] keypoints)
     {
         // Get key points for swing analysis
-        var leftShoulder = keypoints[KeypointDict["left_shoulder"]];
-        var rightShoulder = keypoints[KeypointDict["right_shoulder"]];
-        var leftWrist = keypoints[KeypointDict["left_wrist"]];
-        var rightWrist = keypoints[KeypointDict["right_wrist"]];
-        var leftHip = keypoints[KeypointDict["left_hip"]];
-        var rightHip = keypoints[KeypointDict["right_hip"]];
+        var leftShoulder = keypoints[(int)JointFeatures.LeftShoulder];
+        var rightShoulder = keypoints[(int)JointFeatures.RightShoulder];
+        var leftWrist = keypoints[(int)JointFeatures.LeftWrist];
+        var rightWrist = keypoints[(int)JointFeatures.RightWrist];
+        var leftHip = keypoints[(int)JointFeatures.LeftHip];
+        var rightHip = keypoints[(int)JointFeatures.RightHip];
 
         // Need both shoulders and at least one hip visible
         if (leftShoulder.Confidence < MinConfidence || rightShoulder.Confidence < MinConfidence ||
@@ -199,8 +211,7 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         }
 
         // Determine hitting arm and get wrist position
-        bool useRightArm = DetermineHittingArm(leftShoulder, rightShoulder, leftWrist, rightWrist,
-                                              keypoints[KeypointDict["left_elbow"]], keypoints[KeypointDict["right_elbow"]], MinConfidence);
+        bool useRightArm = DetermineHittingArm(keypoints, MinConfidence);
 
         var hittingWrist = useRightArm ? rightWrist : leftWrist;
         if (hittingWrist.Confidence < MinConfidence)
@@ -215,40 +226,19 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         return DeterminePhaseFromBodyPosition(bodyPosition, useRightArm);
     }
 
-    private static bool DetermineHittingArm(SwingPoseFeatures leftShoulder, SwingPoseFeatures rightShoulder,
-        SwingPoseFeatures leftWrist, SwingPoseFeatures rightWrist,
-        SwingPoseFeatures leftElbow, SwingPoseFeatures rightElbow, float MinConfidence)
+    /// <summary>
+    /// true for right arm
+    /// </summary>
+    /// <returns></returns>
+    private static bool DetermineHittingArm(JointData[] keypoints, float minConfidence)
     {
-        // Prefer right arm for tennis (most players are right-handed)
-        if (rightShoulder.Confidence > MinConfidence && rightWrist.Confidence > MinConfidence &&
-            rightElbow.Confidence > MinConfidence)
-        {
-            return true; // Use right arm
-        }
-
-        if (leftShoulder.Confidence > MinConfidence && leftWrist.Confidence > MinConfidence &&
-            leftElbow.Confidence > MinConfidence)
-        {
-            return false; // Use left arm
-        }
-
-        // Fallback: use arm with better visibility
-        return rightShoulder.Confidence + rightWrist.Confidence > leftShoulder.Confidence + leftWrist.Confidence;
+        // todo: need to write based on what features are available
+        return true;
     }
 
-    private struct BodyPosition
-    {
-        public float ShoulderRotation;  // How much shoulders are rotated (positive = open to court)
-        public float HipRotation;       // How much hips are rotated (positive = open to court)
-        public float RacketPosition;    // Where racket is relative to body center (negative = back, positive = forward)
-        public bool ShouldersSquared;   // Are shoulders roughly parallel to baseline
-        public bool HipsOpen;           // Are hips opened to the court
-        public bool IsCoiled;           // Is body in coiled backswing position
-    }
-
-    private static BodyPosition AnalyzeBodyPosition(SwingPoseFeatures leftShoulder, SwingPoseFeatures rightShoulder,
-                                                   SwingPoseFeatures leftHip, SwingPoseFeatures rightHip,
-                                                   SwingPoseFeatures hittingWrist, bool useRightArm,
+    private static BodyPosition AnalyzeBodyPosition(JointData leftShoulder, JointData rightShoulder,
+                                                   JointData leftHip, JointData rightHip,
+                                                   JointData hittingWrist, bool useRightArm,
                                                    float MinConfidence)
     {
         var position = new BodyPosition();
@@ -308,24 +298,10 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         return SwingPhase.Preparation;
     }
 
-    private SwingPoseFeatures[] RunInferenceWithCrop(byte[] imageBytes, CropRegion cropRegion)
-    {
-        var keypoints = _inferenceService.RunInference(imageBytes, cropRegion);
-
-        // Update coordinates from crop region to original image coordinates
-        for (int idx = 0; idx < MoveNetVideoProcessor.NumKeyPoints; idx++)
-        {
-            keypoints[idx].Y = cropRegion.YMin + (cropRegion.Height * keypoints[idx].Y);
-            keypoints[idx].X = cropRegion.XMin + (cropRegion.Width * keypoints[idx].X);
-        }
-
-        return keypoints;
-    }
-
-    private static CropRegion DetermineCropRegion(SwingPoseFeatures[] keypoints, int imageHeight, int imageWidth)
+    private static CropRegion DetermineCropRegion(JointData[] keypoints, int imageHeight, int imageWidth)
     {
         // Convert to pixel coordinates
-        var targetKeypoints = new Dictionary<string, Vector2>();
+        var targetKeypoints = new Dictionary<JointFeatures, Vector2>();
 
         foreach (var kvp in KeypointDict)
         {
@@ -339,8 +315,8 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         if (IsTorsoVisible(keypoints))
         {
             // Calculate center from hips
-            float centerY = (targetKeypoints["left_hip"].Y + targetKeypoints["right_hip"].Y) / 2;
-            float centerX = (targetKeypoints["left_hip"].X + targetKeypoints["right_hip"].X) / 2;
+            float centerY = (targetKeypoints[JointFeatures.LeftHip].Y + targetKeypoints[JointFeatures.RightHip].Y) / 2;
+            float centerX = (targetKeypoints[JointFeatures.LeftHip].X + targetKeypoints[JointFeatures.RightHip].X) / 2;
 
             var (maxTorsoYRange, maxTorsoXRange, maxBodyYRange, maxBodyXRange) =
                 DetermineTorsoAndBodyRange(keypoints, targetKeypoints, centerY, centerX);
@@ -379,25 +355,25 @@ public class MoveNetVideoProcessor(string modelPath) : IDisposable
         }
     }
 
-    private static bool IsTorsoVisible(SwingPoseFeatures[] keypoints)
+    private static bool IsTorsoVisible(JointData[] keypoints)
     {
-        return (keypoints[KeypointDict["left_hip"]].Confidence > MinCropKeypointScore ||
-                keypoints[KeypointDict["right_hip"]].Confidence > MinCropKeypointScore) &&
-               (keypoints[KeypointDict["left_shoulder"]].Confidence > MinCropKeypointScore ||
-                keypoints[KeypointDict["right_shoulder"]].Confidence > MinCropKeypointScore);
+        return (keypoints[(int)JointFeatures.LeftHip].Confidence > MinCropKeypointScore ||
+                keypoints[(int)JointFeatures.RightHip].Confidence > MinCropKeypointScore) &&
+               (keypoints[(int)JointFeatures.LeftShoulder].Confidence > MinCropKeypointScore ||
+                keypoints[(int)JointFeatures.RightShoulder].Confidence > MinCropKeypointScore);
     }
 
     private static (float, float, float, float) DetermineTorsoAndBodyRange(
-        SwingPoseFeatures[] keypoints,
-        Dictionary<string, Vector2> targetKeypoints,
+        JointData[] keypoints,
+        Dictionary<JointFeatures, Vector2> targetKeypoints,
         float centerY,
         float centerX)
     {
-        string[] torsoJoints = ["left_shoulder", "right_shoulder", "left_hip", "right_hip"];
+        JointFeatures[] torsoJoints = { JointFeatures.LeftShoulder, JointFeatures.RightShoulder, JointFeatures.LeftHip, JointFeatures.RightHip };
         float maxTorsoYRange = 0.0f;
         float maxTorsoXRange = 0.0f;
 
-        foreach (string joint in torsoJoints)
+        foreach (JointFeatures joint in torsoJoints)
         {
             float distY = Math.Abs(centerY - targetKeypoints[joint].Y);
             float distX = Math.Abs(centerX - targetKeypoints[joint].X);

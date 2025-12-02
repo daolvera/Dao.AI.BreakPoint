@@ -50,8 +50,6 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
                     Console.WriteLine($"No frames extracted from video: {videoPath}");
                     continue;
                 }
-
-                // Get video metadata
                 var metadata = VideoProcessingService.GetVideoMetadata(videoPath);
 
                 // Split the videos in the different swings and analyze them

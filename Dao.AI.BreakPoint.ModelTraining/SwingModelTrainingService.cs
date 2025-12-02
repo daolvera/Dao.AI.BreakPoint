@@ -1,41 +1,10 @@
-﻿using Dao.AI.BreakPoint.Services;
+﻿using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Tensorflow.NumPy;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
-/// <summary>
-/// Service for training a 1D CNN model to analyze tennis swing technique and predict USTA ratings.
-/// 
-/// Training Process:
-/// 1. Takes List<ProcessedSwingVideo> containing:
-///    - Multiple swings per video with pose keypoint data from MoveNet
-///    - USTA rating (1.0-7.0) for the player in the video
-///    - Frame rate and image dimensions
-/// 
-/// 2. For each swing, extracts 66 features per frame:
-///    - 24 velocity/acceleration values (12 joints × 2)
-///    - 8 joint angles (elbows, shoulders, hips, knees)
-///    - 34 position coordinates (17 keypoints × 2)
-/// 
-/// 3. Normalizes sequences to fixed length (default 90 frames = 3 seconds at 30 FPS)
-/// 
-/// 4. Trains 1D CNN to output 6 values:
-///    - Overall rating
-///    - Shoulder technique score
-///    - Contact point technique score  
-///    - Preparation technique score
-///    - Balance technique score
-///    - Follow-through technique score
-/// 
-/// Usage:
-///   var trainingService = new SwingModelTrainingService(poseFeatureExtractor);
-///   var modelPath = await trainingService.TrainTensorFlowModelAsync(videos, config);
-/// </summary>
-internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatureExtractorService)
+internal class SwingModelTrainingService()
 {
-    private const float MIN_CONFIDENCE = 0.2f;
-    private readonly SwingPreprocessingService _preprocessingService = new(PoseFeatureExtractorService);
-
     public async Task<string> TrainTensorFlowModelAsync(
         List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config
@@ -187,7 +156,7 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
         Console.WriteLine("Data validation passed");
     }
 
-    private async Task<(NDArray inputArray, NDArray targetArray)> PreprocessTrainingDataAsync(
+    private static async Task<(NDArray inputArray, NDArray targetArray)> PreprocessTrainingDataAsync(
         List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config)
     {
@@ -201,9 +170,8 @@ internal class SwingModelTrainingService(IPoseFeatureExtractorService PoseFeatur
                 float[,]? processedSequence;
                 try
                 {
-                    processedSequence = await _preprocessingService.PreprocessSwingAsync(
+                    processedSequence = await SwingPreprocessingService.PreprocessSwingAsync(
                         swing,
-                        video.SwingVideo,
                         config.SequenceLength,
                         config.NumFeatures);
                 }

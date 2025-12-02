@@ -1,14 +1,16 @@
 ﻿using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
+using System.Numerics;
 using Tensorflow.NumPy;
 
 namespace Dao.AI.BreakPoint.Services.MoveNet;
 
-public class MoveNetInferenceService : IDisposable
+public class MoveNetInferenceService : IDisposable, IPoseInferenceService
 {
     private readonly IImageProcessor _imageProcessor;
     private InferenceSession InferenceSession { get; set; }
+    private const float MinConfidence = 0.3f;
 
     public MoveNetInferenceService(string modelPath, IImageProcessor? imageProcessor = null)
     {
@@ -21,7 +23,15 @@ public class MoveNetInferenceService : IDisposable
         InferenceSession = new InferenceSession(modelPath);
     }
 
-    public SwingPoseFeatures[] InferPoseFromImage(NDArray imageArray, int targetSize = 256)
+    private JointData[] InferPoseFromImage(
+        NDArray imageArray,
+        int imageHeight,
+        int imageWidth,
+        int targetSize = 256,
+        CropRegion? cropRegion = null,
+        FrameData? prevFrame = null,
+        FrameData? prev2Frame = null,
+        float deltaTime = 1 / 30f)
     {
         // Convert NDArray to int tensor (model expects Int32 input)
         var inputTensor = ToOnnxTensor(imageArray, targetSize);
@@ -35,19 +45,70 @@ public class MoveNetInferenceService : IDisposable
         var output = results[0].AsEnumerable<float>().ToArray();
 
         // MoveNet output shape: [1, 1, 17, 3] (batch, person, keypoints, [y,x,confidence])
-        // Parse output to SwingPoseFeatures[]
-        var features = new List<SwingPoseFeatures>();
+        var keypoints = new JointData[MoveNetVideoProcessor.NumKeyPoints];
+
+        // Process each joint and calculate all properties as we go
         for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
         {
             int baseIdx = i * 3;
-            features.Add(new SwingPoseFeatures
+
+            // Get normalized coordinates from model output
+            var y = cropRegion is null ?
+                output[baseIdx] :
+                cropRegion.YMin + (cropRegion.Height * output[baseIdx]);
+            var x = cropRegion is null ?
+                output[baseIdx + 1] :
+                cropRegion.XMin + (cropRegion.Width * output[baseIdx + 1]);
+            var confidence = output[baseIdx + 2];
+
+            // Convert to pixel coordinates
+            var currentPixelPos = JointData.ToPixelCoordinates(x, y, imageHeight, imageWidth);
+
+            // Calculate velocity if previous frame exists
+            float? speed = null;
+            if (prevFrame != null && confidence >= MinConfidence)
             {
-                Y = output[baseIdx],
-                X = output[baseIdx + 1],
-                Confidence = output[baseIdx + 2]
-            });
+                var prevPixelPos = prevFrame.Joints[i].ToPixelCoordinates(imageHeight, imageWidth);
+                var velocity = (currentPixelPos - prevPixelPos) / deltaTime;
+                speed = velocity.Length();
+            }
+
+            // Calculate acceleration if two previous frames exist
+            float? acceleration = null;
+            if (prev2Frame != null && prevFrame != null && confidence >= MinConfidence)
+            {
+                var prevPixelPos = prevFrame.Joints[i].ToPixelCoordinates(imageHeight, imageWidth);
+                var prev2PixelPos = prev2Frame.Joints[i].ToPixelCoordinates(imageHeight, imageWidth);
+                var accel = (currentPixelPos - (2 * prevPixelPos) + prev2PixelPos) / (deltaTime * deltaTime);
+                acceleration = accel.Length();
+            }
+
+            keypoints[i] = new()
+            {
+                Y = y,
+                X = x,
+                Confidence = confidence,
+                JointFeature = (JointFeatures)i,
+                Speed = speed,
+                Acceleration = acceleration
+            };
         }
-        return [.. features];
+
+        return keypoints;
+    }
+
+    public float[] ComputeJointAngles(JointData[] keypoints, int imageHeight, int imageWidth)
+    {
+        var positions = new Vector2[MoveNetVideoProcessor.NumKeyPoints];
+        var confidences = new float[MoveNetVideoProcessor.NumKeyPoints];
+
+        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
+        {
+            positions[i] = keypoints[i].ToPixelCoordinates(imageHeight, imageWidth);
+            confidences[i] = keypoints[i].Confidence;
+        }
+
+        return positions.ComputeJointAngles(confidences, MinConfidence);
     }
 
     private static DenseTensor<int> ToOnnxTensor(NDArray imageArray, int targetSize)
@@ -55,11 +116,7 @@ public class MoveNetInferenceService : IDisposable
         // Model expects Int32 input, shape [1, targetSize, targetSize, 3], values 0-255
         var shape = new[] { 1, targetSize, targetSize, 3 };
         var tensor = new DenseTensor<int>(shape);
-
-        // Convert NDArray to byte array and then to int values (keeping 0-255 range)
         var byteData = imageArray.ToByteArray();
-
-        // Convert bytes to int values (0-255 stays as 0-255 integers)
         for (int i = 0; i < byteData.Length; i++)
         {
             tensor.Buffer.Span[i] = (int)byteData[i];
@@ -68,14 +125,22 @@ public class MoveNetInferenceService : IDisposable
         return tensor;
     }
 
-    public SwingPoseFeatures[] RunInference(byte[] imageBytes, CropRegion cropRegion, int cropSize = 256)
+    public JointData[] RunInference(
+        byte[] imageBytes,
+        CropRegion cropRegion,
+        int imageHeight,
+        int imageWidth,
+        FrameData? prevFrame = null,
+        FrameData? prev2Frame = null,
+        float deltaTime = 1 / 30f,
+        int cropSize = 256)
     {
         // Convert bytes to NDArray, then crop and resize
         var imageArray = _imageProcessor.PreprocessImageBytes(imageBytes, cropSize);
         var croppedImage = _imageProcessor.CropAndResize(imageArray, cropRegion, cropSize);
 
         // Run inference on the cropped image
-        return InferPoseFromImage(croppedImage, cropSize);
+        return InferPoseFromImage(croppedImage, imageHeight, imageWidth, cropSize, cropRegion, prevFrame, prev2Frame, deltaTime);
     }
 
     public void Dispose()

@@ -19,11 +19,4 @@
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.Services\Dao.AI.BreakPoint.Services.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <None Update="movenet\saved_model.pb">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>
