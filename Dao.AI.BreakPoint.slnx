@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/Solution Items/">
     <File Path=".gitignore" />
+    <File Path="CustomModelPlanning.md" />
+    <File Path="README.md" />
   </Folder>
   <Project Path="Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj" Id="2e6f7ae4-d5d4-4a7b-8740-b8ceda76df68" />
   <Project Path="Dao.AI.BreakPoint.ApiService/Dao.AI.BreakPoint.ApiService.csproj" />
