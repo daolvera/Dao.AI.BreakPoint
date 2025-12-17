@@ -1,0 +1,218 @@
+<!-- Mobile Header Bar -->
+@if (isMobile()) {
+<header
+  class="fixed top-0 left-0 right-0 h-16 bg-white shadow-md z-50 flex items-center justify-between px-4"
+>
+  @if (authService.userInfo()) {
+  <button
+    mat-icon-button
+    (click)="toggleMobileDrawer()"
+    class="text-gray-600 hover:text-primary-600"
+    aria-label="Toggle menu"
+  >
+    <mat-icon>{{ isMobileDrawerOpen() ? "close" : "menu" }}</mat-icon>
+  </button>
+  }
+  <div routerLink="/">
+    <breakpoint-logo></breakpoint-logo>
+  </div>
+
+  <!-- User menu or sign in for mobile header -->
+  @if (authService.userInfo()) {
+  <button
+    mat-icon-button
+    [matMenuTriggerFor]="mobileUserMenu"
+    class="text-gray-600 hover:text-primary-600"
+  >
+    <mat-icon>account_circle</mat-icon>
+  </button>
+  <mat-menu #mobileUserMenu="matMenu">
+    <button mat-menu-item (click)="authService.logout()">
+      <mat-icon>logout</mat-icon>
+      <span>Sign Out</span>
+    </button>
+  </mat-menu>
+  } @else {
+  <button
+    mat-icon-button
+    (click)="authService.login()"
+    class="text-primary-600"
+  >
+    <mat-icon>login</mat-icon>
+  </button>
+  }
+</header>
+
+<!-- Mobile Drawer Overlay -->
+@if (isMobileDrawerOpen()) {
+<div
+  class="fixed inset-0 bg-black/50 z-40 top-16"
+  (click)="closeMobileDrawer()"
+></div>
+
+<!-- Mobile Drawer -->
+<aside
+  class="fixed top-16 left-0 bottom-0 w-64 bg-white shadow-lg z-50 flex flex-col"
+>
+  <!-- Navigation Items -->
+  <nav class="flex-1 py-4">
+    @for (item of visibleNavItems; track item.route) {
+    <a
+      [routerLink]="item.route"
+      (click)="closeMobileDrawer()"
+      routerLinkActive="bg-primary-50 text-primary-600 border-r-4 border-primary-600"
+      [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+      class="flex items-center h-12 px-4 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+    >
+      <mat-icon class="text-current mr-3">{{ item.icon }}</mat-icon>
+      <span class="font-medium">{{ item.label }}</span>
+    </a>
+    }
+  </nav>
+
+  <!-- User Section at Bottom -->
+  <div class="border-t border-gray-100 p-4">
+    @if (authService.userInfo()) {
+    <div class="flex items-center mb-4">
+      <mat-icon class="text-gray-600 mr-3">account_circle</mat-icon>
+      <div class="overflow-hidden">
+        <div class="text-sm font-medium text-gray-900 truncate">
+          {{ authService.userInfo()!.displayName || "User" }}
+        </div>
+        <div class="text-xs text-gray-500 truncate">
+          {{ authService.userInfo()!.email }}
+        </div>
+      </div>
+    </div>
+    <button
+      mat-stroked-button
+      (click)="authService.logout(); closeMobileDrawer()"
+      class="w-full"
+    >
+      <mat-icon class="mr-2">logout</mat-icon>
+      Sign Out
+    </button>
+    } @else {
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="authService.login()"
+      class="w-full"
+    >
+      Sign In
+    </button>
+    }
+  </div>
+</aside>
+} }
+
+<!-- Desktop Sidebar -->
+@if (!isMobile()) {
+<aside
+  class="fixed left-0 top-0 h-screen bg-white shadow-lg z-50 transition-all duration-300 ease-in-out flex flex-col"
+  [class.w-64]="isExpanded()"
+  [class.w-16]="!isExpanded()"
+>
+  <a
+    (click)="toggleSidebar()"
+    class="flex items-center h-12 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+    [class.px-4]="isExpanded()"
+    [class.justify-center]="!isExpanded()"
+    [class.justify-start]="isExpanded()"
+    [matTooltip]="!isExpanded() ? 'Expand' : 'Collapse'"
+    matTooltipPosition="right"
+  >
+    @if (isExpanded()){
+    <mat-icon class="text-current mr-3">menu_open</mat-icon>
+    <span class="font-medium">Collapse</span>
+    } @else{
+    <mat-icon class="text-current" [class.mr-3]="isExpanded()">menu</mat-icon>
+    }
+  </a>
+
+  <a
+    [routerLink]="['/']"
+    routerLinkActive="bg-primary-50 text-primary-600 border-r-4 border-primary-600"
+    [routerLinkActiveOptions]="{ exact: '/' === '/' }"
+    class="flex items-center h-12 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+    style="text-decoration: none"
+    [class.px-2]="isExpanded()"
+    [class.justify-center]="!isExpanded()"
+    [class.justify-start]="isExpanded()"
+  >
+    <breakpoint-logo [iconOnly]="!isExpanded()" />
+  </a>
+
+  <!-- Navigation Items -->
+  <nav class="flex-1 py-4">
+    @for (item of visibleNavItems; track item.route) {
+    <a
+      [routerLink]="item.route"
+      routerLinkActive="bg-primary-50 text-primary-600 border-r-4 border-primary-600"
+      [routerLinkActiveOptions]="{ exact: item.route === '/' }"
+      class="flex items-center h-12 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+      [class.px-4]="isExpanded()"
+      [class.justify-center]="!isExpanded()"
+      [class.justify-start]="isExpanded()"
+      [matTooltip]="!isExpanded() ? item.label : ''"
+      matTooltipPosition="right"
+    >
+      <mat-icon class="text-current" [class.mr-3]="isExpanded()">{{
+        item.icon
+      }}</mat-icon>
+      @if (isExpanded()) {
+      <span class="font-medium">{{ item.label }}</span>
+      }
+    </a>
+    }
+  </nav>
+
+  <div class="border-t py-4">
+    @if (authService.userInfo()) {
+    <a
+      [matMenuTriggerFor]="userMenu"
+      class="flex items-center h-12 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+      [class.px-4]="isExpanded()"
+      [class.justify-center]="!isExpanded()"
+      [class.justify-start]="isExpanded()"
+      [matTooltip]="!isExpanded() ? 'Account' : ''"
+      matTooltipPosition="right"
+    >
+      <mat-icon class="text-current" [class.mr-3]="isExpanded()"
+        >account_circle</mat-icon
+      >
+      @if (isExpanded()) {
+      <span class="font-medium">{{
+        authService.userInfo()?.displayName ??
+          authService.userInfo()?.email ??
+          "Account"
+      }}</span>
+      }
+    </a>
+    <mat-menu #userMenu="matMenu" class="p-3">
+      <button mat-menu-item (click)="authService.logout()">
+        <mat-icon>logout</mat-icon>
+        <span>Sign Out</span>
+      </button>
+    </mat-menu>
+    } @else {
+    <a
+      (click)="authService.login()"
+      class="flex items-center h-12 text-gray-700 hover:bg-primary-50 hover:text-primary-600 transition-colors"
+      [class.px-4]="isExpanded()"
+      [class.justify-center]="!isExpanded()"
+      [class.justify-start]="isExpanded()"
+      [matTooltip]="!isExpanded() ? 'Sign In' : ''"
+      matTooltipPosition="right"
+    >
+      <mat-icon class="text-current" [class.mr-3]="isExpanded()"
+        >login</mat-icon
+      >
+      @if (isExpanded()) {
+      <span class="font-medium">Sign In</span>
+      }
+    </a>
+    }
+  </div>
+</aside>
+}

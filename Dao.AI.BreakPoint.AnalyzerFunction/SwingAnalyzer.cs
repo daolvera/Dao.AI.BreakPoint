@@ -17,7 +17,6 @@ public class SwingAnalyzer(
     {
         AnalysisEvent analysisEvent = await AnalysisEventService.GetAnalysisEventAsync(analysisEventId)
             ?? throw new MissingAnalysisEventException(analysisEventId);
-
-
+        await SwingAnalyzerService.AnalyzeSwingAsync(videoStream, analysisEvent);
     }
 }

@@ -8,7 +8,7 @@ export const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'home', redirectTo: '' },
   {
-    path: 'complete-profile',
+    path: 'auth/complete',
     component: CompleteProfileComponent,
     canActivate: [authGuard],
   },

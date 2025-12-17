@@ -58,6 +58,14 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
             PlayerDto.FromModel(player);
     }
 
+    public async Task<PlayerDto?> GetByAppUserIdAsync(string appUserId)
+    {
+        var player = await playerRepository.GetByAppUserIdAsync(appUserId);
+        return player is null ?
+            null :
+            PlayerDto.FromModel(player);
+    }
+
     public async Task<PlayerWithStatsDto?> GetWithStatsAsync(int id)
     {
         return await playerRepository.GetPlayerWithStatsAsync(id);

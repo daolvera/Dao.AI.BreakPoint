@@ -1,14 +1,11 @@
 import { Component, inject, input, OnInit, signal } from '@angular/core';
-import {
-  PlayerService,
-  PlayerVideoDto,
-} from '../../core/services/player.service';
+import { PlayerService } from '../../core/services/player.service';
 import { PlayerWithStatsDto, VideoUploadResult } from '../../core/models/dtos';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService } from '../../core/services/auth.service';
+import { ToastService } from '../../core/services/toast.service';
 import { VideoUploadComponent } from '../../shared/components/video-upload/video-upload.component';
 import { CommonModule } from '@angular/common';
 
@@ -20,7 +17,6 @@ import { CommonModule } from '@angular/common';
     MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatSnackBarModule,
     VideoUploadComponent,
   ],
   templateUrl: './player-profile.component.html',
@@ -28,12 +24,11 @@ import { CommonModule } from '@angular/common';
 })
 export class PlayerProfileComponent implements OnInit {
   protected playerWithStats = signal<PlayerWithStatsDto | null>(null);
-  protected playerVideos = signal<PlayerVideoDto[]>([]);
   protected showVideoUpload = signal(false);
 
   private playerService = inject(PlayerService);
   protected authService = inject(AuthService);
-  private snackBar = inject(MatSnackBar);
+  private toastService = inject(ToastService);
 
   public ngOnInit(): void {
     const playerId = this.authService.userInfo()!.playerId!;
@@ -43,21 +38,6 @@ export class PlayerProfileComponent implements OnInit {
       .subscribe((playerStats) => {
         this.playerWithStats.set(playerStats);
       });
-
-    this.loadPlayerVideos();
-  }
-
-  private loadPlayerVideos(): void {
-    const playerId = this.authService.userInfo()!.playerId!;
-    this.playerService.getPlayerVideos(playerId).subscribe({
-      next: (videos) => {
-        this.playerVideos.set(videos);
-      },
-      error: (error) => {
-        console.error('Failed to load player videos:', error);
-        // Don't show error message as videos might not be implemented on backend yet
-      },
-    });
   }
 
   protected toggleVideoUpload(): void {
@@ -66,7 +46,6 @@ export class PlayerProfileComponent implements OnInit {
 
   protected onVideoUploaded(result: VideoUploadResult): void {
     this.showVideoUpload.set(false);
-    this.loadPlayerVideos(); // Refresh the video list
   }
 
   protected deleteVideo(videoId: string): void {
@@ -74,16 +53,10 @@ export class PlayerProfileComponent implements OnInit {
 
     this.playerService.deletePlayerVideo(playerId, videoId).subscribe({
       next: () => {
-        this.loadPlayerVideos(); // Refresh the video list
-        this.snackBar.open('Video deleted successfully', 'Close', {
-          duration: 3000,
-        });
+        this.toastService.success('Video deleted successfully');
       },
       error: (error) => {
         console.error('Failed to delete video:', error);
-        this.snackBar.open('Failed to delete video', 'Close', {
-          duration: 5000,
-        });
       },
     });
   }

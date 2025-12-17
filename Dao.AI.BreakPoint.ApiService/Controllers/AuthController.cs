@@ -2,6 +2,7 @@ using Dao.AI.BreakPoint.ApiService.Utilities;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.DTOs;
+using Dao.AI.BreakPoint.Services.Exceptions;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.Requests;
 using Dao.AI.BreakPoint.Services.Responses;
@@ -38,12 +39,14 @@ public class AuthController(
         {
             return Unauthorized();
         }
+        var player = await PlayerService.GetByAppUserIdAsync(user.Id) ?? throw new NotFoundException($"Player for {user.UserName}");
         return Ok(new UserDto
         {
             Id = user.Id,
             Email = user.Email,
             DisplayName = user.DisplayName,
-            IsProfileComplete = user.IsProfileComplete
+            IsProfileComplete = user.IsProfileComplete,
+            PlayerId = player.Id
         });
     }
 
@@ -118,8 +121,8 @@ public class AuthController(
             var tokens = await TokenService.GenerateTokenAsync(user);
 
             SetSecureTokenCookies(tokens);
-
-            return Redirect($"{applicationBaseUrl}/auth/complete");
+            string redirectUrl = user.IsProfileComplete ? $"{applicationBaseUrl}" : $"{applicationBaseUrl}/auth/complete";
+            return Redirect(redirectUrl);
         }
         catch (Exception ex)
         {

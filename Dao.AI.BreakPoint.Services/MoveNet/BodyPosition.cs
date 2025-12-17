@@ -4,11 +4,16 @@ public partial class MoveNetVideoProcessor
 {
     private struct BodyPosition
     {
-        public float ShoulderRotation;  // How much shoulders are rotated (positive = open to court)
-        public float HipRotation;       // How much hips are rotated (positive = open to court)
-        public float RacketPosition;    // Where racket is relative to body center (negative = back, positive = forward)
-        public bool ShouldersSquared;   // Are shoulders roughly parallel to baseline
-        public bool HipsOpen;           // Are hips opened to the court
-        public bool IsCoiled;           // Is body in coiled backswing position
+        public float ShoulderRotation { get; set; }
+        public float HipRotation { get; set; }
+        public float RacketPosition { get; set; }
+        public bool ShouldersSquared { get; set; }
+        public bool HipsOpen { get; set; }
+        public bool IsCoiled { get; set; }
+        public float RacketSpeed { get; set; }
+        public float RacketAcceleration { get; set; }
+        public float ShoulderAngularVelocity { get; set; }
+        public float ElbowAngle { get; set; }
+        public float ElbowAngularVelocity { get; set; }
     }
 }

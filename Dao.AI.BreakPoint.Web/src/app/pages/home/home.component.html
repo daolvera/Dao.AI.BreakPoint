@@ -1,165 +1,110 @@
-<div class="home-container">
-  <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="hero-content">
-      <mat-card class="hero-card">
-        <mat-card-content class="text-center">
-          <mat-icon class="hero-icon">sports_tennis</mat-icon>
-          <h1 class="hero-title">
-            Elevate Your Tennis Game with
-            <span class="brand-highlight">BreakPoint AI</span>
-          </h1>
-          <p class="hero-subtitle">
-            Upload your tennis swing videos and get instant AI-powered analysis
-            to improve your technique, track your progress, and become the
-            player you've always wanted to be.
-          </p>
+<!-- Hero Section with Background Image -->
+<section
+  class="hero-section relative min-h-screen flex items-center justify-center overflow-hidden"
+>
+  <!-- Hero Background Image Overlay -->
+  <div class="absolute inset-0 hero-background"></div>
 
-          @if (!authService.isAuthenticated()) {
-          <div class="hero-actions">
-            <button
-              mat-raised-button
-              color="primary"
-              class="cta-primary"
-              (click)="login()"
-            >
-              <mat-icon>sports_tennis</mat-icon>
-              Start Your Journey
-            </button>
-            <button mat-button class="cta-secondary">
-              <mat-icon>play_arrow</mat-icon>
-              Learn More
-            </button>
-          </div>
-          }
-        </mat-card-content>
-      </mat-card>
+  <!-- Gradient Overlay for better text readability -->
+  <div
+    class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70"
+  ></div>
+
+  <!-- Hero Content -->
+  <div class="relative z-10 text-center px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+    <h1
+      class="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight"
+    >
+      Elevate Your
+      <span class="block text-primary-400">Tennis Game</span>
+    </h1>
+    <p
+      class="text-xl md:text-2xl text-gray-200 mb-10 max-w-2xl mx-auto leading-relaxed"
+    >
+      AI-powered swing analysis that helps you perfect your technique and
+      dominate the court.
+    </p>
+    <div class="flex flex-col">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="authService.login()"
+        class="try-now-btn text-xl px-12 py-4 rounded-full shadow-2xl hover:shadow-primary-500/30 transition-all duration-300 transform hover:scale-105"
+      >
+        <mat-icon class="mr-2">play_arrow</mat-icon>
+        Try Now — It's Free
+      </button>
+      <button
+        (click)="scrollToAbout()"
+        class="animate-bounce cursor-pointer bg-transparent border-none p-4 hover:scale-110 transition-transform"
+        aria-label="Scroll to learn more"
+      >
+        <mat-icon class="text-white/70 scroll-icon"
+          >keyboard_arrow_down</mat-icon
+        >
+      </button>
     </div>
-  </section>
+  </div>
+</section>
 
-  <!-- Features Section -->
-  <section class="features-section">
-    <div class="section-content">
-      <div class="section-header">
-        <h2>Why Choose BreakPoint?</h2>
-        <p>
-          Discover the powerful features that make BreakPoint the ultimate
-          tennis improvement platform
-        </p>
+<!-- About Section -->
+<section
+  id="about-section"
+  class="min-h-screen py-24 bg-white flex items-center"
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-8">
+      Your Personal AI Tennis Coach
+    </h2>
+
+    <p class="text-xl text-gray-600 leading-relaxed mb-12">
+      BreakPoint.AI uses advanced computer vision to analyze your tennis swing
+      in real-time. Simply upload a video of your swing, and our AI will break
+      down your technique, identify areas for improvement, and provide
+      personalized coaching tips to help you become the player you've always
+      wanted to be.
+    </p>
+
+    <div class="grid md:grid-cols-3 gap-8 mb-16">
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">videocam</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Upload</h3>
+        <p class="text-gray-600">Record your swing and upload in seconds</p>
       </div>
 
-      <div class="features-grid">
-        @for (feature of features; track feature.title) {
-        <mat-card class="feature-card">
-          <mat-card-header>
-            <mat-icon mat-card-avatar color="primary">{{
-              feature.icon
-            }}</mat-icon>
-            <mat-card-title>{{ feature.title }}</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <p>{{ feature.description }}</p>
-          </mat-card-content>
-        </mat-card>
-        }
-      </div>
-    </div>
-  </section>
-
-  <!-- How It Works Section -->
-  <section class="how-it-works-section">
-    <div class="section-content">
-      <div class="section-header">
-        <h2>How It Works</h2>
-        <p>
-          Get started in just 4 simple steps and begin improving your tennis
-          game today
-        </p>
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">psychology</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Analyze</h3>
+        <p class="text-gray-600">AI breaks down your technique instantly</p>
       </div>
 
-      <div class="steps-grid">
-        @for (step of steps; track step.step) {
-        <mat-card class="step-card">
-          <mat-card-content class="text-center">
-            <div class="step-number">{{ step.step }}</div>
-            <h3>{{ step.title }}</h3>
-            <p>{{ step.description }}</p>
-          </mat-card-content>
-        </mat-card>
-        }
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">trending_up</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Improve</h3>
+        <p class="text-gray-600">Track progress and master your game</p>
       </div>
     </div>
-  </section>
 
-  <!-- Stats Section -->
-  <section class="stats-section">
-    <div class="section-content">
-      <mat-card class="stats-card">
-        <mat-card-content>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-number">10,000+</div>
-              <div class="stat-label">Videos Analyzed</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number">95%</div>
-              <div class="stat-label">Accuracy Rate</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number">5,000+</div>
-              <div class="stat-label">Happy Players</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-number">24/7</div>
-              <div class="stat-label">AI Support</div>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </section>
-
-  <!-- Call to Action Section -->
-  @if (!authService.isAuthenticated()) {
-  <section class="cta-section">
-    <div class="section-content">
-      <mat-card class="cta-card">
-        <mat-card-content class="text-center">
-          <h2>Ready to Transform Your Tennis Game?</h2>
-          <p>
-            Join thousands of players who are already improving their technique
-            with BreakPoint AI. Start your journey today - it's completely free!
-          </p>
-
-          <div class="cta-actions">
-            <button
-              mat-raised-button
-              color="primary"
-              class="cta-main"
-              (click)="login()"
-            >
-              <mat-icon>sports_tennis</mat-icon>
-              Get Started Free
-            </button>
-          </div>
-
-          <div class="cta-features">
-            <div class="cta-feature">
-              <mat-icon color="primary">check_circle</mat-icon>
-              <span>Free to start</span>
-            </div>
-            <div class="cta-feature">
-              <mat-icon color="primary">check_circle</mat-icon>
-              <span>Instant analysis</span>
-            </div>
-            <div class="cta-feature">
-              <mat-icon color="primary">check_circle</mat-icon>
-              <span>No credit card required</span>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-    </div>
-  </section>
-  }
-</div>
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="authService.login()"
+      class="text-xl px-16 py-5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+    >
+      <mat-icon class="mr-2">sports_tennis</mat-icon>
+      Start Improving Today
+    </button>
+  </div>
+</section>

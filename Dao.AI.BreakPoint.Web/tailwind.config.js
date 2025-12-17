@@ -12,24 +12,34 @@ module.exports = {
           200: '#9fd2ba',
           300: '#79c09e',
           400: '#5cb289',
-          500: '#058743', // Your main primary color
-          600: '#047a3d',
-          700: '#036b36',
-          800: '#025c2f',
-          900: '#014421',
+          500: '#4caf50', // Material Green
+          600: '#388e3c',
+          700: '#2e7d32',
+          800: '#1b5e20',
+          900: '#0d5016',
         },
-        // You can also add other custom colors here
         accent: {
-          500: '#ff6b35', // Example accent color
+          500: '#ff6b35',
         }
       },
       spacing: {
-        '15': '60px', // For header/footer heights
+        '15': '60px',
+        '18': '4.5rem',
+        '72': '18rem',
+        '84': '21rem',
+        '96': '24rem',
       },
       fontFamily: {
-        'roboto': ['Roboto', '"Helvetica Neue"', 'sans-serif'],
+        'sans': ['Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+      },
+      boxShadow: {
+        'soft': '0 2px 15px rgba(0, 0, 0, 0.08)',
+        'medium': '0 4px 25px rgba(0, 0, 0, 0.15)',
       }
     },
   },
   plugins: [],
+  corePlugins: {
+    preflight: false, // Disable Tailwind's base styles to avoid conflicts with Angular Material
+  }
 }

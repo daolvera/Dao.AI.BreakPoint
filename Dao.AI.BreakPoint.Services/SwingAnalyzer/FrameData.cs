@@ -15,4 +15,12 @@ public class FrameData
     public float RightHipAngle { get; set; }
     public float LeftKneeAngle { get; set; }
     public float RightKneeAngle { get; set; }
+
+    // Motion metrics for tennis swing analysis
+    public float WristSpeed { get; set; }
+    public float WristAcceleration { get; set; }
+    public float ShoulderSpeed { get; set; }
+    public float ElbowSpeed { get; set; }
+    public float HipRotationSpeed { get; set; }
+    public int FrameIndex { get; set; }
 }

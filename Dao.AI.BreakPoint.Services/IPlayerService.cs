@@ -6,6 +6,7 @@ namespace Dao.AI.BreakPoint.Services;
 public interface IPlayerService
 {
     Task<PlayerDto?> GetByIdAsync(int id);
+    Task<PlayerDto?> GetByAppUserIdAsync(string appUserId);
     Task<IEnumerable<PlayerDto>> GetAllAsync();
     Task<IEnumerable<PlayerDto>> SearchAsync(PlayerSearchRequest playerSearchParameters);
     Task<PlayerWithStatsDto?> GetWithStatsAsync(int id);

@@ -1,0 +1,40 @@
+.complete-profile-container {
+  background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+}
+
+mat-card {
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+mat-card-header {
+  padding-bottom: 0;
+}
+
+.rating-info-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+
+  &:hover mat-icon {
+    transform: scale(1.1);
+  }
+
+  mat-icon {
+    transition: transform 0.2s ease-in-out;
+  }
+}
+
+// Spinner animation for loading state
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

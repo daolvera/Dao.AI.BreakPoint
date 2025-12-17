@@ -1,0 +1,22 @@
+:host {
+  display: block;
+}
+
+// Ensure the sidebar transitions smoothly
+aside {
+  will-change: width;
+}
+
+// Active state styling for nav items
+a.bg-primary-50 {
+  position: relative;
+}
+
+// Smooth icon scaling on hover
+mat-icon {
+  transition: transform 0.2s ease;
+}
+
+a:hover mat-icon {
+  transform: scale(1.1);
+}

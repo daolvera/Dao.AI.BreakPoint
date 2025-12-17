@@ -1,5 +1,5 @@
 @if (playerWithStats()){
-<h1>{{ playerWithStats()?.name }}</h1>
+<h1 class="ms-2">{{ playerWithStats()?.name }}</h1>
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
   <!-- Player Profile Card -->
   <mat-card class="m-2 p-4">
@@ -50,46 +50,7 @@
         >
         </app-video-upload>
       </div>
-      } @if (playerVideos().length > 0) {
-      <div class="video-grid mt-4">
-        @for (video of playerVideos(); track video.id) {
-        <div class="video-item">
-          <div class="video-thumbnail">
-            @if (video.thumbnailUrl) {
-            <img
-              [src]="video.thumbnailUrl"
-              [alt]="video.fileName"
-              class="thumbnail-img"
-            />
-            } @else {
-            <div class="no-thumbnail">
-              <mat-icon>play_circle_filled</mat-icon>
-            </div>
-            }
-            <div class="video-duration">{{ video.duration }}s</div>
-          </div>
-
-          <div class="video-info">
-            <h4>{{ video.fileName }}</h4>
-            <p class="upload-date">
-              Uploaded: {{ formatDate(video.uploadDate) }}
-            </p>
-
-            <div class="video-actions">
-              <a mat-button color="primary" [href]="video.url" target="_blank">
-                <mat-icon>play_arrow</mat-icon>
-                Watch
-              </a>
-              <button mat-button color="warn" (click)="deleteVideo(video.id)">
-                <mat-icon>delete</mat-icon>
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-        }
-      </div>
-      } @else if (!showVideoUpload()) {
+      } @else {
       <div class="no-videos">
         <mat-icon>video_library</mat-icon>
         <p>No tennis swing videos uploaded yet.</p>

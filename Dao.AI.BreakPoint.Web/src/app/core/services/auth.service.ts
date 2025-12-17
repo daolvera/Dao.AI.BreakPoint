@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { UserDto } from '../models/dtos/user.dto';
+import { CompleteProfileRequest } from '../models/requests/complete-profile.request';
 
 @Injectable({
   providedIn: 'root',
@@ -23,6 +24,10 @@ export class AuthService {
   public login() {
     let requestEndpoint: string = 'google';
     window.location.href = `api/Auth/${requestEndpoint}`;
+  }
+
+  public completeProfile(completeProfileRequest: CompleteProfileRequest) {
+    return this.http.post('api/Auth/Complete', completeProfileRequest);
   }
 
   public logout() {

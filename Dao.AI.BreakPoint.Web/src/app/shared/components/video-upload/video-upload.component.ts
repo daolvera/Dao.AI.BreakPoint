@@ -3,20 +3,14 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { VideoUploadService } from '../../../core/services/video-upload.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { VideoUploadResult } from '../../../core/models/dtos';
 
 @Component({
   selector: 'app-video-upload',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressBarModule,
-    MatSnackBarModule,
-  ],
+  imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressBarModule],
   template: `
     <div class="video-upload-container">
       <div
@@ -100,7 +94,7 @@ export class VideoUploadComponent {
 
   // Services
   private videoUploadService = inject(VideoUploadService);
-  private snackBar = inject(MatSnackBar);
+  private toastService = inject(ToastService);
 
   // Signals
   protected selectedFile = signal<File | null>(null);
@@ -141,10 +135,7 @@ export class VideoUploadComponent {
     if (validation.isValid) {
       this.selectedFile.set(file);
     } else {
-      this.snackBar.open(validation.error || 'Invalid video file', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar'],
-      });
+      this.toastService.error(validation.error || 'Invalid video file');
     }
   }
 
@@ -162,22 +153,11 @@ export class VideoUploadComponent {
             if (result.success) {
               this.uploadedVideo.set(result);
               this.videoUploaded.emit(result);
-              this.snackBar.open('Video uploaded successfully!', 'Close', {
-                duration: 3000,
-                panelClass: ['success-snackbar'],
-              });
+              this.toastService.success('Video uploaded successfully!');
             }
           },
           error: (error: any) => {
             console.error('Upload error:', error);
-            this.snackBar.open(
-              error.message || 'Failed to upload video',
-              'Close',
-              {
-                duration: 5000,
-                panelClass: ['error-snackbar'],
-              }
-            );
           },
           complete: () => {
             this.isUploading.set(false);
@@ -185,10 +165,7 @@ export class VideoUploadComponent {
         });
     } catch (error) {
       this.isUploading.set(false);
-      this.snackBar.open('An error occurred during upload', 'Close', {
-        duration: 5000,
-        panelClass: ['error-snackbar'],
-      });
+      this.toastService.error('An error occurred during upload');
     }
   }
 

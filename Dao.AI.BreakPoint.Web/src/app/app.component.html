@@ -1,54 +1,20 @@
-<div class="breakpoint-container" [class.breakpoint-is-mobile]="isMobile">
-  <mat-toolbar class="breakpoint-toolbar">
-    <div class="flex flex-row items-center">
-      <button matIconButton (click)="snav.toggle()">
-        <mat-icon>menu</mat-icon>
-      </button>
-      <breakpoint-logo />
-    </div>
-    <div>
-      @if (authService.userInfo() != null){
-      <a mat-list-item [routerLink]="['profile']">{{
-        authService.userInfo()!.displayName ??
-          authService.userInfo()!.email ??
-          "Profile"
-      }}</a>
-      } @else{
-      <button mat-button (click)="authService.login()">Sign In</button>
-      }
-    </div>
-  </mat-toolbar>
-
-  <mat-sidenav-container
-    class="breakpoint-sidenav-container"
-    [style.marginTop.px]="isMobile ? 56 : 0"
-  >
-    <mat-sidenav
-      #snav
-      [mode]="isMobile ? 'over' : 'side'"
-      [fixedInViewport]="isMobile"
-      fixedTopGap="56"
-    >
-      <mat-nav-list>
-        <a [routerLink]="['']" class="flex items-center">
-          <mat-icon class="me-2">home</mat-icon>
-          Home
-        </a>
-      </mat-nav-list>
-      @if (authService.userInfo() != null){
-      <mat-nav-list>
-        <a [routerLink]="['profile']" class="flex items-center">
-          <mat-icon class="me-2">account_circle</mat-icon>
-          View Profile
-        </a>
-      </mat-nav-list>
-      }
-    </mat-sidenav>
-
-    <mat-sidenav-content>
-      <div class="m-2">
-        <router-outlet />
-      </div>
-    </mat-sidenav-content>
-  </mat-sidenav-container>
+<!-- Global Loading Spinner Overlay -->
+@if (busyService.isLoading()) {
+<div class="loading-overlay">
+  <mat-progress-spinner
+    mode="indeterminate"
+    diameter="60"
+    color="primary"
+  ></mat-progress-spinner>
 </div>
+}
+
+<breakpoint-navbar></breakpoint-navbar>
+
+<!-- Main Content Area - adjusts margin based on navbar -->
+<!-- On mobile: pt-16 for fixed header, On desktop: ml-16 for sidebar -->
+<main
+  class="min-h-screen bg-gray-50 pt-16 md:pt-0 md:ml-16 transition-all duration-300"
+>
+  <router-outlet></router-outlet>
+</main>
