@@ -1,5 +1,5 @@
-﻿using Dao.AI.BreakPoint.Data.Enums;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using Dao.AI.BreakPoint.Data.Enums;
 
 namespace Dao.AI.BreakPoint.Data.Models;
 
@@ -20,6 +20,11 @@ public class Player : UpdatableModel
     /// </summary>
     [Range(1.0, 7.0)]
     public double UstaRating { get; set; }
+
+    /// <summary>
+    /// Whether the player is right-handed or left-handed
+    /// </summary>
+    public Handedness Handedness { get; set; }
     #region Player Type
     public PlayerType EstimatedPlayerType { get; set; }
 
@@ -43,4 +48,14 @@ public class Player : UpdatableModel
     #endregion
     public virtual ICollection<Match> MyReportedMatches { get; set; } = [];
     public virtual ICollection<Match> MyParticipatedMatches { get; set; } = [];
+
+    /// <summary>
+    /// In-progress analysis requests for this player
+    /// </summary>
+    public virtual ICollection<AnalysisRequest> AnalysisRequests { get; set; } = [];
+
+    /// <summary>
+    /// Completed analysis results for this player (historical record)
+    /// </summary>
+    public virtual ICollection<AnalysisResult> AnalysisResults { get; set; } = [];
 }

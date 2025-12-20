@@ -1,20 +1,25 @@
-import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, signal } from '@angular/core';
 import {
   FormBuilder,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import {
+  Handedness,
+  HandednessLabels,
+} from '../../core/models/enums/handedness.enum';
+import { CompleteProfileForm } from '../../core/models/forms/complete-profile.form';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
-import { CompleteProfileForm } from '../../core/models/forms/complete-profile.form';
 
 @Component({
   selector: 'app-complete-profile',
@@ -28,6 +33,7 @@ import { CompleteProfileForm } from '../../core/models/forms/complete-profile.fo
     MatIconModule,
     MatTooltipModule,
     MatCardModule,
+    MatSelectModule,
   ],
   templateUrl: './complete-profile.component.html',
   styleUrl: './complete-profile.component.scss',
@@ -38,6 +44,11 @@ export class CompleteProfileComponent {
   private readonly toastService = inject(ToastService);
 
   protected readonly isSubmitting = signal(false);
+
+  // Handedness options for template
+  protected readonly Handedness = Handedness;
+  protected readonly HandednessLabels = HandednessLabels;
+  protected readonly handednessOptions = Object.values(Handedness);
 
   protected readonly profileForm: FormGroup<CompleteProfileForm> =
     this.fb.group({
@@ -50,6 +61,9 @@ export class CompleteProfileComponent {
         Validators.required,
         Validators.min(1),
         Validators.max(7),
+      ]),
+      handedness: this.fb.nonNullable.control<Handedness | null>(null, [
+        Validators.required,
       ]),
     });
 
@@ -69,6 +83,7 @@ export class CompleteProfileComponent {
       .completeProfile({
         name: formValue.name,
         ustaRating: formValue.ustaRating!,
+        handedness: formValue.handedness!,
       })
       .subscribe({
         next: () => {

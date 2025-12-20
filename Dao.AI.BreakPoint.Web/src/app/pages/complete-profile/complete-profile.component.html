@@ -68,6 +68,27 @@
           }
         </mat-form-field>
 
+        <!-- Handedness Field -->
+        <mat-form-field appearance="outline" class="w-full">
+          <mat-label>Dominant Hand</mat-label>
+          <mat-select
+            formControlName="handedness"
+            placeholder="Select your dominant hand"
+          >
+            @for (option of handednessOptions; track option) {
+            <mat-option [value]="option">{{
+              HandednessLabels[option]
+            }}</mat-option>
+            }
+          </mat-select>
+          <mat-icon matPrefix class="mr-2">front_hand</mat-icon>
+          <mat-hint>Which hand do you primarily play with?</mat-hint>
+          @if (profileForm.controls.handedness.hasError('required') &&
+          profileForm.controls.handedness.touched) {
+          <mat-error>Please select your dominant hand</mat-error>
+          }
+        </mat-form-field>
+
         <!-- Submit Button -->
         <button
           mat-raised-button

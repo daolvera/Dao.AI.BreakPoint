@@ -1,0 +1,19 @@
+.analysis-results-container {
+  .feature-item {
+    .bg-primary-500 {
+      background-color: #3b82f6;
+    }
+  }
+
+  .coaching-tip {
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: translateX(4px);
+    }
+
+    .tip-number {
+      font-size: 0.875rem;
+    }
+  }
+}

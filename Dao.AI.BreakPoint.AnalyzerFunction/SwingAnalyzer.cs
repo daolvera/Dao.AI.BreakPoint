@@ -8,15 +8,23 @@ namespace Dao.AI.BreakPoint.AnalyzerFunction;
 
 public class SwingAnalyzer(
     ISwingAnalyzerService SwingAnalyzerService,
-    IAnalysisEventService AnalysisEventService
-    )
+    IAnalysisProcessingService AnalysisEventService
+)
 {
-
     [Function(nameof(SwingAnalyzer))]
-    public async Task Run([BlobTrigger("swing-analysis/{analysisEventId}", Source = BlobTriggerSource.EventGrid, Connection = "")] Stream videoStream, string analysisEventId)
+    public async Task Run(
+        [BlobTrigger(
+            "swing-analysis/{analysisEventId}",
+            Source = BlobTriggerSource.EventGrid,
+            Connection = ""
+        )]
+            Stream videoStream,
+        int analysisRequestId
+    )
     {
-        AnalysisEvent analysisEvent = await AnalysisEventService.GetAnalysisEventAsync(analysisEventId)
-            ?? throw new MissingAnalysisEventException(analysisEventId);
-        await SwingAnalyzerService.AnalyzeSwingAsync(videoStream, analysisEvent);
+        AnalysisRequest analysisRequest =
+            await AnalysisEventService.GetRequestAsync(analysisRequestId)
+            ?? throw new MissingAnalysisRequestException(analysisRequestId);
+        await SwingAnalyzerService.AnalyzeSwingAsync(videoStream, analysisRequest);
     }
 }

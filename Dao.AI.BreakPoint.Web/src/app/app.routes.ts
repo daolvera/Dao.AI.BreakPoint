@@ -1,8 +1,10 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
+import { AnalysisResultsComponent } from './pages/analysis-results/analysis-results.component';
+import { CompleteProfileComponent } from './pages/complete-profile/complete-profile.component';
+import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { HomeComponent } from './pages/home/home.component';
 import { PlayerProfileComponent } from './pages/player-profile/player-profile.component';
-import { authGuard } from './core/guards/auth.guard';
-import { CompleteProfileComponent } from './pages/complete-profile/complete-profile.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -17,10 +19,18 @@ export const routes: Routes = [
     component: PlayerProfileComponent,
     canActivate: [authGuard],
   },
+  {
+    path: 'dashboard',
+    component: DashboardComponent,
+    canActivate: [authGuard],
+  },
+  {
+    path: 'analysis/:id',
+    component: AnalysisResultsComponent,
+    canActivate: [authGuard],
+  },
   // TODO: Add in anonymous home page
   // TODO: add in login handling
-  // TODO: add in a dashboard page once logged in
-  // TODO: add in a profile page
   // TODO: add in a settings page
   // TODO: add in an error handling page
 ];

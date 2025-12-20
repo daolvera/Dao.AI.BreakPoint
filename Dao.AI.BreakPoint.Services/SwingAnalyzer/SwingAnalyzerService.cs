@@ -10,9 +10,9 @@ namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 public class SwingAnalyzerService(
     IVideoProcessingService VideoProcessingService,
     IOptions<MoveNetOptions> MoveNetOptions
-    ) : ISwingAnalyzerService
+) : ISwingAnalyzerService
 {
-    public async Task AnalyzeSwingAsync(Stream videoStream, AnalysisEvent analysisEvent)
+    public async Task AnalyzeSwingAsync(Stream videoStream, AnalysisRequest analysisRequest)
     {
         // save the stream to a temporary file
         string tempFilePath = Path.GetTempFileName();
@@ -23,7 +23,9 @@ public class SwingAnalyzerService(
         var frameImages = VideoProcessingService.ExtractFrames(tempFilePath);
         if (frameImages.Count == 0)
         {
-            throw new InvalidOperationException("No frames extracted from the provided video stream.");
+            throw new InvalidOperationException(
+                "No frames extracted from the provided video stream."
+            );
         }
         var metadata = VideoProcessingService.GetVideoMetadata(tempFilePath);
         using var processor = new MoveNetVideoProcessor(MoveNetOptions.Value.ModelPath);
@@ -31,6 +33,6 @@ public class SwingAnalyzerService(
         // take the prepared swings and analyze them
         // save the result to the db as a swinganalysis
         // update the swing analysis status
-        analysisEvent.AnaylsisStatus = AnaylsisStatus.Completed;
+        analysisRequest.Status = AnalysisStatus.Completed;
     }
 }

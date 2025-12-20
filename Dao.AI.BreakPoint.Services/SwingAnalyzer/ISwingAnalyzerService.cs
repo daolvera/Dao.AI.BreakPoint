@@ -4,5 +4,5 @@ namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
 public interface ISwingAnalyzerService
 {
-    Task AnalyzeSwingAsync(Stream videoStream, AnalysisEvent analysisEvent);
+    Task AnalyzeSwingAsync(Stream videoStream, AnalysisRequest analysisRequest);
 }

@@ -1,9 +1,9 @@
 ﻿namespace Dao.AI.BreakPoint.Data.Enums;
 
-public enum AnaylsisStatus
+public enum AnalysisStatus
 {
     Requested,
     InProgress,
     Completed,
-    Failed
+    Failed,
 }

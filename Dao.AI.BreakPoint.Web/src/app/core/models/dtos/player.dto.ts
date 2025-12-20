@@ -1,3 +1,4 @@
+import { Handedness } from '../enums/handedness.enum';
 import { PlayerType } from '../enums/player-type.enum';
 
 export interface PlayerDto extends CreatePlayerDto {
@@ -5,6 +6,7 @@ export interface PlayerDto extends CreatePlayerDto {
   createdAt: string;
   updatedAt: string;
   estimatedPlayerType: PlayerType;
+  handedness: Handedness;
 }
 
 export interface CreatePlayerDto {
