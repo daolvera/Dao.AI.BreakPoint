@@ -26,7 +26,10 @@ internal class SwingModelTrainingService()
         // Validate preprocessed data
         ValidatePreprocessedData(inputData, targetData, config);
 
-        var model = SwingCnnModel.BuildSingleOutputModel(config.SequenceLength, config.NumFeatures);
+        var model = SwingCnnModel.BuildModelWithAttention(
+            config.SequenceLength,
+            config.NumFeatures
+        );
         SwingCnnModel.CompileModel(model, config.LearningRate);
 
         Console.WriteLine("Training CNN model for USTA rating prediction...");
