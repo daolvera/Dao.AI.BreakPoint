@@ -13,10 +13,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import {
-  Handedness,
-  HandednessLabels,
-} from '../../core/models/enums/handedness.enum';
+import { Router } from '@angular/router';
+import { Handedness } from '../../core/models/enums/handedness.enum';
 import { CompleteProfileForm } from '../../core/models/forms/complete-profile.form';
 import { AuthService } from '../../core/services/auth.service';
 import { ToastService } from '../../core/services/toast.service';
@@ -42,12 +40,12 @@ export class CompleteProfileComponent {
   private readonly fb = inject(FormBuilder);
   private readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  private readonly router = inject(Router);
 
   protected readonly isSubmitting = signal(false);
 
   // Handedness options for template
   protected readonly Handedness = Handedness;
-  protected readonly HandednessLabels = HandednessLabels;
   protected readonly handednessOptions = Object.values(Handedness);
 
   protected readonly profileForm: FormGroup<CompleteProfileForm> =
@@ -89,6 +87,7 @@ export class CompleteProfileComponent {
         next: () => {
           this.isSubmitting.set(false);
           this.toastService.success('Profile completed successfully!');
+          this.router.navigate(['/dashboard']);
         },
         error: (err) => {
           console.error('Error completing profile:', err);

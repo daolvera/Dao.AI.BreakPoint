@@ -75,11 +75,10 @@
             formControlName="handedness"
             placeholder="Select your dominant hand"
           >
-            @for (option of handednessOptions; track option) {
-            <mat-option [value]="option">{{
-              HandednessLabels[option]
-            }}</mat-option>
-            }
+            <mat-option [value]="Handedness.LeftHanded">Left Handed</mat-option>
+            <mat-option [value]="Handedness.RightHanded"
+              >Right Handed</mat-option
+            >
           </mat-select>
           <mat-icon matPrefix class="mr-2">front_hand</mat-icon>
           <mat-hint>Which hand do you primarily play with?</mat-hint>

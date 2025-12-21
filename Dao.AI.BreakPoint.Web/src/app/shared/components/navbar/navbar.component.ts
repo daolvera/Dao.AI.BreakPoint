@@ -1,11 +1,11 @@
-import { Component, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Component, HostListener, inject, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterModule } from '@angular/router';
 import { BreakPointLogoComponent } from '../../../break-point-logo/break-point-logo.component';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -39,7 +39,12 @@ export class NavbarComponent {
   protected readonly isMobileDrawerOpen = signal(false);
 
   protected readonly navItems: NavItem[] = [
-    { icon: 'person', label: 'Profile', route: '/profile', requiresAuth: true },
+    {
+      icon: 'dashboard',
+      label: 'Dashboard',
+      route: '/dashboard',
+      requiresAuth: true,
+    },
   ];
 
   constructor() {

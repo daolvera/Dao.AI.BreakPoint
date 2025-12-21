@@ -21,7 +21,7 @@ import {
   AnalysisResultDto,
 } from '../../core/models/dtos/analysis.dto';
 import { AnalysisStatus } from '../../core/models/enums/analysis-status.enum';
-import { SwingTypeLabels } from '../../core/models/enums/swing-type.enum';
+import { SwingType } from '../../core/models/enums/swing-type.enum';
 import { AnalysisService } from '../../core/services/analysis.service';
 import { SignalRService } from '../../core/services/signalr.service';
 
@@ -80,7 +80,7 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
 
   // Constants for template
   protected AnalysisStatus = AnalysisStatus;
-  protected SwingTypeLabels = SwingTypeLabels;
+  protected SwingTypes = SwingType;
 
   ngOnInit(): void {
     this.analysisRequestId = Number(this.route.snapshot.paramMap.get('id'));

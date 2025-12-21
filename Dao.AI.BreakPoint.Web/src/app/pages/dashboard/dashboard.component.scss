@@ -1,10 +1,6 @@
 .dashboard-container {
   .stat-icon {
     @apply w-12 h-12 rounded-xl flex items-center justify-center;
-
-    mat-icon {
-      @apply text-2xl;
-    }
   }
 
   .analysis-card {
@@ -17,7 +13,7 @@
   }
 
   .empty-state {
-    mat-icon {
+    > mat-icon {
       font-size: 64px;
       width: 64px;
       height: 64px;

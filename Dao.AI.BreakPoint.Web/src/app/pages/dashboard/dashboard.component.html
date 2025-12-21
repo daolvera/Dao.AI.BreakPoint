@@ -2,11 +2,40 @@
   class="dashboard-container min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
 >
   <div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="flex justify-between items-center mb-8">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p class="text-gray-600 mt-1">Track your swing analysis progress</p>
+    <!-- Header with Player Info -->
+    <div
+      class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4"
+    >
+      <div class="flex items-center gap-4">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600 text-3xl">person</mat-icon>
+        </div>
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">{{ playerName() }}</h1>
+          <div class="flex items-center gap-3 text-gray-600 mt-1">
+            @if (playerWithStats()?.estimatedRating) {
+            <span class="flex items-center gap-1">
+              <mat-icon class="text-sm">star</mat-icon>
+              USTA {{ playerWithStats()!.estimatedRating | number : "1.1-1" }}
+            </span>
+            } @if (playerWithStats()?.handedness !== undefined) {
+            <span class="flex items-center gap-1">
+              <mat-icon class="text-sm">{{
+                playerWithStats()!.handedness === Handedness.LeftHanded
+                  ? "back_hand"
+                  : "front_hand"
+              }}</mat-icon>
+              {{
+                playerWithStats()!.handedness === Handedness.LeftHanded
+                  ? "Left"
+                  : "Right"
+              }}-handed
+            </span>
+            }
+          </div>
+        </div>
       </div>
       <button
         mat-raised-button
@@ -19,8 +48,8 @@
       </button>
     </div>
 
-    <!-- Connection Status -->
-    @if (isConnecting()) {
+    <!-- Connection Status (only show when SignalR is needed) -->
+    @if (signalRNeeded()) { @if (isConnecting()) {
     <div class="mb-4 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
       <mat-progress-spinner
         diameter="20"
@@ -35,10 +64,10 @@
         >Live updates unavailable. Refresh to retry.</span
       >
     </div>
-    }
+    } }
 
     <!-- Quick Stats -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
       <mat-card class="stat-card">
         <mat-card-content class="flex items-center gap-4 p-4">
           <div class="stat-icon bg-blue-100 text-blue-600">
@@ -74,7 +103,45 @@
           </div>
         </mat-card-content>
       </mat-card>
+
+      <mat-card class="stat-card">
+        <mat-card-content class="flex items-center gap-4 p-4">
+          <div class="stat-icon bg-purple-100 text-purple-600">
+            <mat-icon>emoji_events</mat-icon>
+          </div>
+          <div>
+            <p class="text-sm text-gray-500">Matches Won</p>
+            <p class="text-2xl font-bold">
+              {{ playerWithStats()?.matchesWon || 0 }}
+            </p>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </div>
+
+    <!-- Latest Coaching Tips -->
+    @if (playerWithStats()?.latestCoachingTips?.length) {
+    <mat-card class="mb-8 p-4">
+      <div class="flex items-center gap-2 mb-4">
+        <mat-icon class="text-primary-600">sports_tennis</mat-icon>
+        <h2 class="text-xl font-semibold text-gray-900">
+          Latest Coaching Tips
+        </h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        @for (tip of playerWithStats()!.latestCoachingTips; track $index) {
+        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
+          <div
+            class="flex-shrink-0 w-6 h-6 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold"
+          >
+            {{ $index + 1 }}
+          </div>
+          <p class="text-gray-700 text-sm">{{ tip }}</p>
+        </div>
+        }
+      </div>
+    </mat-card>
+    }
 
     <!-- Recent Analyses -->
     <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Analyses</h2>
@@ -123,7 +190,7 @@
 
           <!-- Stroke Type -->
           <h3 class="text-lg font-medium text-gray-900 mb-2">
-            {{ SwingTypeLabels[request.strokeType] }}
+            {{ getStrokeTypeLabel(request.strokeType) }}
           </h3>
 
           <!-- Date -->
@@ -170,7 +237,7 @@
 
           <!-- Stroke Type -->
           <h3 class="text-lg font-medium text-gray-900 mb-2">
-            {{ SwingTypeLabels[result.strokeType] }}
+            {{ getStrokeTypeLabel(result.strokeType) }}
           </h3>
 
           <!-- Date -->
@@ -212,8 +279,8 @@
         [(value)]="selectedStrokeType"
         class="w-full border rounded-lg p-2"
       >
-        @for (type of strokeTypes; track type) {
-        <mat-option [value]="type">{{ SwingTypeLabels[type] }}</mat-option>
+        @for (option of strokeTypeOptions; track option.value) {
+        <mat-option [value]="option.value">{{ option.label }}</mat-option>
         }
       </mat-select>
     </div>

@@ -4,7 +4,6 @@ import { AnalysisResultsComponent } from './pages/analysis-results/analysis-resu
 import { CompleteProfileComponent } from './pages/complete-profile/complete-profile.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { HomeComponent } from './pages/home/home.component';
-import { PlayerProfileComponent } from './pages/player-profile/player-profile.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -16,8 +15,7 @@ export const routes: Routes = [
   },
   {
     path: 'profile',
-    component: PlayerProfileComponent,
-    canActivate: [authGuard],
+    redirectTo: 'dashboard',
   },
   {
     path: 'dashboard',

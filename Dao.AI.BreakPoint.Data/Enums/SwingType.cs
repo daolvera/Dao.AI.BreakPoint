@@ -7,5 +7,5 @@ public enum SwingType
     Serve,
     BackhandVolley,
     ForehandVolley,
-    SmashVolley
+    SmashVolley,
 }
