@@ -20,10 +20,11 @@ internal class Program
         {
             if (!Directory.Exists(options.ImageDirectory))
             {
-                throw new DirectoryNotFoundException($"test images directory not found: {options.ImageDirectory}");
+                throw new DirectoryNotFoundException(
+                    $"test images directory not found: {options.ImageDirectory}"
+                );
             }
-            var testImagePaths = Directory.GetFiles(options.ImageDirectory)
-                .ToArray();
+            var testImagePaths = Directory.GetFiles(options.ImageDirectory).ToArray();
             List<byte[]> testImages = [];
             foreach (var testImage in testImagePaths)
             {
@@ -31,25 +32,39 @@ internal class Program
                 testImages.Add(imageBytes);
             }
             using var processor = new MoveNetVideoProcessor(options.InputModelPath);
-            var processedVideo = processor.ProcessVideoFrames(testImages, new()
-            {
-                Width = 1920,
-                Height = 1080,
-                FrameRate = 30,
-                TotalFrames = testImages.Count
-            });
+            // Default to right-handed for testing; in production this comes from the label/player
+            var processedVideo = processor.ProcessVideoFrames(
+                testImages,
+                new()
+                {
+                    Width = 1920,
+                    Height = 1080,
+                    FrameRate = 30,
+                    TotalFrames = testImages.Count,
+                },
+                isRightHanded: true
+            );
             return;
         }
 
         TrainingDatasetLoader datasetLoader = new(new OpenCvVideoProcessingService());
 
-        if (string.IsNullOrEmpty(options.VideoDirectory) || !Directory.Exists(options.VideoDirectory))
+        if (
+            string.IsNullOrEmpty(options.VideoDirectory)
+            || !Directory.Exists(options.VideoDirectory)
+        )
         {
             throw new ArgumentException($"Video directory not found: {options.VideoDirectory}");
         }
 
-        Console.WriteLine($"Processing individual video labels from directory: {options.VideoDirectory}");
-        List<TrainingSwingVideo> processedSwingVideos = await datasetLoader.ProcessVideoDirectoryAsync(options.VideoDirectory, options.InputModelPath);
+        Console.WriteLine(
+            $"Processing individual video labels from directory: {options.VideoDirectory}"
+        );
+        List<TrainingSwingVideo> processedSwingVideos =
+            await datasetLoader.ProcessVideoDirectoryAsync(
+                options.VideoDirectory,
+                options.InputModelPath
+            );
 
         if (processedSwingVideos.Count == 0)
         {
@@ -62,7 +77,9 @@ internal class Program
         if (options.BatchSize > processedSwingVideos.Count)
         {
             options.BatchSize = processedSwingVideos.Count;
-            Console.WriteLine($"Adjusted batch size to {options.BatchSize} due to limited training data.");
+            Console.WriteLine(
+                $"Adjusted batch size to {options.BatchSize} due to limited training data."
+            );
         }
 
         try
@@ -137,9 +154,15 @@ internal class Program
         Console.WriteLine("Tennis Swing Analysis Model Training");
         Console.WriteLine();
         Console.WriteLine("Usage:");
-        Console.WriteLine("  --video-dir|-d <path>   Path to directory with videos and individual label files");
-        Console.WriteLine("  --movenet|-m <path>     Path to MoveNet model file (default: movenet/saved_model.pb)");
-        Console.WriteLine("  --output|-o <path>      Output model path (default: usta_swing_model.h5)");
+        Console.WriteLine(
+            "  --video-dir|-d <path>   Path to directory with videos and individual label files"
+        );
+        Console.WriteLine(
+            "  --movenet|-m <path>     Path to MoveNet model file (default: movenet/saved_model.pb)"
+        );
+        Console.WriteLine(
+            "  --output|-o <path>      Output model path (default: usta_swing_model.h5)"
+        );
         Console.WriteLine("  --help|-h               Show this help message");
         Console.WriteLine();
         Console.WriteLine("Example:");

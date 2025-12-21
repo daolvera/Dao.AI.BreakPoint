@@ -1,22 +1,26 @@
-﻿using Dao.AI.BreakPoint.Services.MoveNet;
+﻿using System.Text.Json;
+using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
-using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
 
-internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingService) : ITrainingDatasetLoader
+internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingService)
+    : ITrainingDatasetLoader
 {
     private readonly JsonSerializerOptions _jsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
-        WriteIndented = true
+        WriteIndented = true,
     };
 
     /// <summary>
     /// Load training dataset from individual video/label files in a directory
     /// Separate out the original video into swing segments
     /// </summary>
-    public async Task<List<TrainingSwingVideo>> ProcessVideoDirectoryAsync(string videoDirectory, string moveNetModelPath)
+    public async Task<List<TrainingSwingVideo>> ProcessVideoDirectoryAsync(
+        string videoDirectory,
+        string moveNetModelPath
+    )
     {
         if (!Directory.Exists(videoDirectory))
         {
@@ -26,7 +30,8 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
         var processedTrainingSwingVideos = new List<TrainingSwingVideo>();
         var videoExtensions = new[] { ".mp4", ".avi", ".mov", ".mkv", ".webm" };
 
-        var videoFiles = Directory.GetFiles(videoDirectory)
+        var videoFiles = Directory
+            .GetFiles(videoDirectory)
             .Where(f => videoExtensions.Contains(Path.GetExtension(f).ToLower()))
             .ToArray();
 
@@ -38,9 +43,10 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
             {
                 var labelPath = Path.ChangeExtension(videoPath, ".json");
 
-
                 var label = await LoadVideoLabelAsync(labelPath);
-                Console.WriteLine($"Processing video: {Path.GetFileName(videoPath)} (USTA Rating: {label.UstaRating})");
+                Console.WriteLine(
+                    $"Processing video: {Path.GetFileName(videoPath)} (Stroke: {label.StrokeType}, Quality: {label.QualityScore}, RightHanded: {label.IsRightHanded})"
+                );
 
                 // Extract frames from video
                 var frameImages = VideoProcessingService.ExtractFrames(videoPath);
@@ -53,11 +59,18 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
                 var metadata = VideoProcessingService.GetVideoMetadata(videoPath);
 
                 // Split the videos in the different swings and analyze them
-                processedTrainingSwingVideos.Add(new()
-                {
-                    TrainingLabel = label,
-                    SwingVideo = processor.ProcessVideoFrames(frameImages, metadata),
-                });
+                // Pass the handedness from the label for proper arm detection
+                processedTrainingSwingVideos.Add(
+                    new()
+                    {
+                        TrainingLabel = label,
+                        SwingVideo = processor.ProcessVideoFrames(
+                            frameImages,
+                            metadata,
+                            label.IsRightHanded
+                        ),
+                    }
+                );
             }
             catch (Exception ex)
             {
@@ -66,7 +79,9 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
             }
         }
 
-        Console.WriteLine($"Successfully processed {processedTrainingSwingVideos.Count} videos from directory");
+        Console.WriteLine(
+            $"Successfully processed {processedTrainingSwingVideos.Count} videos from directory"
+        );
         return processedTrainingSwingVideos;
     }
 
@@ -81,13 +96,18 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
         }
 
         var jsonContent = await File.ReadAllTextAsync(labelPath);
-        var label = JsonSerializer.Deserialize<VideoLabel>(jsonContent, _jsonOptions)
-            ?? throw new InvalidOperationException($"Failed to deserialize label from: {labelPath}");
+        var label =
+            JsonSerializer.Deserialize<VideoLabel>(jsonContent, _jsonOptions)
+            ?? throw new InvalidOperationException(
+                $"Failed to deserialize label from: {labelPath}"
+            );
 
-        // Validate USTA rating range
-        if (label.UstaRating < 1.0 || label.UstaRating > 7.0)
+        // Validate quality score range (0-100)
+        if (label.QualityScore < 0 || label.QualityScore > 100)
         {
-            throw new ArgumentException($"Invalid USTA rating {label.UstaRating} in {labelPath}. Must be between 1.0 and 7.0");
+            throw new ArgumentException(
+                $"Invalid quality score {label.QualityScore} in {labelPath}. Must be between 0 and 100"
+            );
         }
 
         return label;

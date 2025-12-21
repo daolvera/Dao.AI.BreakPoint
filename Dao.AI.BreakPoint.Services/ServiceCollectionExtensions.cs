@@ -1,5 +1,6 @@
 ﻿using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
+using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dao.AI.BreakPoint.Services;
@@ -26,6 +27,24 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnalysisProcessingService, AnalysisProcessingService>();
         services.AddScoped<IAnalysisRequestRepository, AnalysisRequestRepository>();
         services.AddScoped<IAnalysisResultRepository, AnalysisResultRepository>();
+        return services;
+    }
+
+    public static IServiceCollection AddSwingAnalyzerServices(
+        this IServiceCollection services,
+        Action<SwingQualityModelOptions>? configure = null
+    )
+    {
+        if (configure is not null)
+        {
+            services.Configure(configure);
+        }
+        else
+        {
+            services.Configure<SwingQualityModelOptions>(_ => { });
+        }
+
+        services.AddScoped<ISwingAnalyzerService, SwingAnalyzerService>();
         return services;
     }
 
