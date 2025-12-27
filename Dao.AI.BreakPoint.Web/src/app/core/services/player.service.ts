@@ -10,12 +10,19 @@ export class PlayerService {
   private http = inject(HttpClient);
 
   public getPlayerById(playerId: number): Observable<PlayerDto> {
-    return this.http.get<PlayerDto>(`api/players/${playerId}`);
+    return this.http.get<PlayerDto>(`api/player/${playerId}`);
   }
 
   public getPlayerWithStatsById(
     playerId: number
   ): Observable<PlayerWithStatsDto> {
-    return this.http.get<PlayerWithStatsDto>(`api/players/${playerId}/details`);
+    return this.http.get<PlayerWithStatsDto>(`api/player/${playerId}/details`);
+  }
+
+  public deletePlayerVideo(
+    playerId: number,
+    videoId: string
+  ): Observable<void> {
+    return this.http.delete<void>(`api/player/${playerId}/videos/${videoId}`);
   }
 }

@@ -1,2 +1,63 @@
-// All styles converted to Tailwind classes in the HTML template
-// Component-specific styles that can't be handled by Tailwind can go here
+// Clean, minimal styles that work with Tailwind
+:host {
+  display: block;
+  width: 100%;
+}
+
+// Hero section with background image
+.hero-section {
+  min-height: 100vh;
+}
+
+.hero-background {
+  background-image: url('/hero-tennis.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+// Primary color for text (matching Material green theme)
+.text-primary-400 {
+  color: #66bb6a;
+}
+
+// Try Now button styling
+.try-now-btn {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+// Bounce animation for scroll indicator
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-bounce {
+  animation: bounce 2s ease-in-out infinite;
+}
+
+// Scroll indicator icon - properly sized
+.scroll-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+}
+
+// Ensure Material Design buttons work properly
+.mat-mdc-raised-button {
+  font-weight: 600;
+}
+
+// Ensure proper icon sizing
+mat-icon {
+  vertical-align: middle;
+}

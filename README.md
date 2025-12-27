@@ -1,6 +1,7 @@
 # Dao.AI.BreakPoint
 
 This project is intended for showcasing enterprise practices in a real application. The central focus of the project is a custom AI model to analyze a tennis swing and give coaching feedback to the user to improve.
+This project will be coded during the DAO Codes Twitch Stream as well as offstream. Visit https://www.twitch.tv/daolveradev to watch the development of this project live.
 
 ## Architecture
 

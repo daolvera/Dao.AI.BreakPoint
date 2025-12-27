@@ -6,5 +6,5 @@ public class UserDto
     public string? Email { get; set; }
     public string? DisplayName { get; set; }
     public required bool IsProfileComplete { get; set; }
-    public int PlayerId { get; set; }
+    public required int PlayerId { get; set; }
 }

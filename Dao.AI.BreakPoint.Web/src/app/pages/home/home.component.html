@@ -1,1 +1,110 @@
-<div class="d-flex m-2" style="width: 100%; min-height: 600px">Home Page</div>
+<!-- Hero Section with Background Image -->
+<section
+  class="hero-section relative min-h-screen flex items-center justify-center overflow-hidden"
+>
+  <!-- Hero Background Image Overlay -->
+  <div class="absolute inset-0 hero-background"></div>
+
+  <!-- Gradient Overlay for better text readability -->
+  <div
+    class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/40 to-black/70"
+  ></div>
+
+  <!-- Hero Content -->
+  <div class="relative z-10 text-center px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+    <h1
+      class="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight tracking-tight"
+    >
+      Elevate Your
+      <span class="block text-primary-400">Tennis Game</span>
+    </h1>
+    <p
+      class="text-xl md:text-2xl text-gray-200 mb-10 max-w-2xl mx-auto leading-relaxed"
+    >
+      AI-powered swing analysis that helps you perfect your technique and
+      dominate the court.
+    </p>
+    <div class="flex flex-col">
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="authService.login()"
+        class="try-now-btn text-xl px-12 py-4 rounded-full shadow-2xl hover:shadow-primary-500/30 transition-all duration-300 transform hover:scale-105"
+      >
+        <mat-icon class="mr-2">play_arrow</mat-icon>
+        Try Now — It's Free
+      </button>
+      <button
+        (click)="scrollToAbout()"
+        class="animate-bounce cursor-pointer bg-transparent border-none p-4 hover:scale-110 transition-transform"
+        aria-label="Scroll to learn more"
+      >
+        <mat-icon class="text-white/70 scroll-icon"
+          >keyboard_arrow_down</mat-icon
+        >
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- About Section -->
+<section
+  id="about-section"
+  class="min-h-screen py-24 bg-white flex items-center"
+>
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+    <h2 class="text-4xl md:text-5xl font-bold text-gray-900 mb-8">
+      Your Personal AI Tennis Coach
+    </h2>
+
+    <p class="text-xl text-gray-600 leading-relaxed mb-12">
+      BreakPoint.AI uses advanced computer vision to analyze your tennis swing
+      in real-time. Simply upload a video of your swing, and our AI will break
+      down your technique, identify areas for improvement, and provide
+      personalized coaching tips to help you become the player you've always
+      wanted to be.
+    </p>
+
+    <div class="grid md:grid-cols-3 gap-8 mb-16">
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">videocam</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Upload</h3>
+        <p class="text-gray-600">Record your swing and upload in seconds</p>
+      </div>
+
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">psychology</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Analyze</h3>
+        <p class="text-gray-600">AI breaks down your technique instantly</p>
+      </div>
+
+      <div class="p-6">
+        <div
+          class="w-16 h-16 bg-primary-100 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+        >
+          <mat-icon class="text-primary-600">trending_up</mat-icon>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Improve</h3>
+        <p class="text-gray-600">Track progress and master your game</p>
+      </div>
+    </div>
+
+    <button
+      mat-raised-button
+      color="primary"
+      (click)="authService.login()"
+      class="text-xl px-16 py-5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+    >
+      <mat-icon class="mr-2">sports_tennis</mat-icon>
+      Start Improving Today
+    </button>
+  </div>
+</section>

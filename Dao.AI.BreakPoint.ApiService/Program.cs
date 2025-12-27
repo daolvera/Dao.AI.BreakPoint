@@ -1,4 +1,6 @@
 using Dao.AI.BreakPoint.ApiService.Configuration;
+using Dao.AI.BreakPoint.ApiService.Hubs;
+using Dao.AI.BreakPoint.ApiService.Services;
 using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Services;
 using Microsoft.IdentityModel.Protocols.Configuration;
@@ -15,10 +17,16 @@ builder.Services.AddCors(options =>
         "AllowAngularApp",
         policy =>
         {
-            policy.WithOrigins(
-                builder.Configuration["BreakPointAppUrl"] ??
-                    throw new InvalidConfigurationException("BreakPointAppUrl is not configured")
-                ).AllowAnyMethod().AllowAnyHeader();
+            policy
+                .WithOrigins(
+                    builder.Configuration["BreakPointAppUrl"]
+                        ?? throw new InvalidConfigurationException(
+                            "BreakPointAppUrl is not configured"
+                        )
+                )
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials(); // Required for SignalR
         }
     );
 });
@@ -26,8 +34,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddBreakPointServices();
 builder.Services.AddBreakPointIdentityServices();
+builder.Services.AddAnalysisServices();
+builder.Services.AddBlobStorage();
 
-builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");
+// Add coaching service - uses Azure OpenAI if configured, otherwise static tips
+var azureOpenAISection = builder.Configuration.GetSection("AzureOpenAI");
+if (azureOpenAISection.Exists() && !string.IsNullOrEmpty(azureOpenAISection["Endpoint"]))
+{
+    builder.Services.AddCoachingService(options => azureOpenAISection.Bind(options));
+}
+else
+{
+    builder.Services.AddCoachingService(); // Falls back to static tips
+}
+
+// Add SignalR
+builder.Services.AddSignalR();
+builder.Services.AddScoped<IAnalysisNotificationService, AnalysisNotificationService>();
+
+builder.AddNpgsqlDbContext<BreakPointDbContext>("BreakPointDb");
 
 builder.AddBreakPointAuthenticationAndAuthorization();
 
@@ -53,7 +78,6 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<BreakPointDbContext>();
@@ -65,6 +89,9 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.MapControllers();
+
+// Map SignalR hub
+app.MapHub<AnalysisHub>("/hubs/analysis");
 
 // Health check endpoint
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))

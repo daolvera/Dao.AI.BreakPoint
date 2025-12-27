@@ -1,0 +1,202 @@
+<div
+  class="analysis-results-container min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
+>
+  <div class="max-w-4xl mx-auto">
+    <!-- Back Button -->
+    <a
+      routerLink="/dashboard"
+      class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
+    >
+      <mat-icon class="mr-2">arrow_back</mat-icon>
+      Back to Dashboard
+    </a>
+
+    @if (isLoading()) {
+    <div class="flex justify-center py-20">
+      <mat-progress-spinner
+        diameter="50"
+        mode="indeterminate"
+      ></mat-progress-spinner>
+    </div>
+    } @else if (error()) {
+    <mat-card class="p-8 text-center">
+      <mat-icon class="text-red-500 text-6xl mb-4">error</mat-icon>
+      <h2 class="text-xl font-semibold text-gray-800 mb-2">
+        Error Loading Analysis
+      </h2>
+      <p class="text-gray-600 mb-4">{{ error() }}</p>
+      <button mat-raised-button color="primary" routerLink="/dashboard">
+        Return to Dashboard
+      </button>
+    </mat-card>
+    } @else if (request()) { @let req = request()!;
+
+    <!-- Header -->
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">
+          {{ SwingTypes[req.strokeType] }} Analysis
+        </h1>
+        <p class="text-gray-500 mt-1">
+          Analyzed {{ req.createdAt | date : "medium" }}
+        </p>
+      </div>
+      <button
+        mat-icon-button
+        color="warn"
+        (click)="deleteAnalysis()"
+        matTooltip="Delete Analysis"
+      >
+        <mat-icon>delete</mat-icon>
+      </button>
+    </div>
+
+    <!-- Processing State -->
+    @if (isProcessing()) {
+    <mat-card class="p-8 text-center mb-6">
+      <mat-progress-spinner
+        diameter="60"
+        mode="indeterminate"
+        class="mx-auto mb-4"
+      ></mat-progress-spinner>
+      <h2 class="text-xl font-semibold text-gray-800 mb-2">
+        Analyzing Your Swing...
+      </h2>
+      <p class="text-gray-600">
+        Our AI is examining your technique. This usually takes 1-2 minutes.
+      </p>
+      <mat-progress-bar mode="indeterminate" class="mt-6"></mat-progress-bar>
+    </mat-card>
+    }
+
+    <!-- Failed State -->
+    @if (req.status === AnalysisStatus.Failed) {
+    <mat-card class="p-8 text-center mb-6 bg-red-50 border border-red-200">
+      <mat-icon class="text-red-500 text-6xl mb-4">error_outline</mat-icon>
+      <h2 class="text-xl font-semibold text-red-800 mb-2">Analysis Failed</h2>
+      <p class="text-red-600 mb-4">
+        {{
+          req.errorMessage || "An unexpected error occurred during analysis."
+        }}
+      </p>
+      <button mat-raised-button color="primary" routerLink="/dashboard">
+        Try Another Video
+      </button>
+    </mat-card>
+    }
+
+    <!-- Completed Results -->
+    @if (hasResult()) { @let res = result()!;
+    <!-- Score Card -->
+    <mat-card class="mb-6 overflow-hidden">
+      <div class="flex flex-col md:flex-row">
+        <!-- Score Section -->
+        <div
+          class="flex-shrink-0 p-8 text-center md:border-r border-gray-200"
+          [class]="getScoreBgColor(res.qualityScore)"
+        >
+          <div
+            class="text-6xl font-bold mb-2"
+            [class]="getScoreColor(res.qualityScore)"
+          >
+            {{ res.qualityScore | number : "1.0-0" }}
+          </div>
+          <div class="text-lg font-medium text-gray-700">
+            {{ getScoreGrade(res.qualityScore) }}
+          </div>
+          <div class="text-sm text-gray-500 mt-1">Quality Score</div>
+        </div>
+
+        <!-- Skeleton Overlay -->
+        @if (res.skeletonOverlayUrl) {
+        <div class="flex-grow p-4">
+          <h3 class="text-sm font-medium text-gray-500 mb-2">
+            Key Frame Analysis
+          </h3>
+          <img
+            [src]="res.skeletonOverlayUrl"
+            alt="Skeleton overlay showing pose analysis"
+            class="rounded-lg shadow-md max-w-full h-auto"
+          />
+        </div>
+        } @else {
+        <div class="flex-grow p-8 flex items-center justify-center bg-gray-100">
+          <div class="text-center text-gray-500">
+            <mat-icon class="text-4xl mb-2">image</mat-icon>
+            <p>Skeleton overlay not available</p>
+          </div>
+        </div>
+        }
+      </div>
+    </mat-card>
+
+    <!-- Feature Importance -->
+    @if (sortedFeatures().length > 0) {
+    <mat-card class="mb-6 p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">
+        Key Areas of Focus
+      </h2>
+      <p class="text-gray-600 mb-4">
+        These aspects of your swing had the most impact on your score:
+      </p>
+
+      <div class="space-y-4">
+        @for (feature of sortedFeatures(); track feature[0]) {
+        <div class="feature-item">
+          <div class="flex justify-between mb-1">
+            <span class="font-medium text-gray-700">{{
+              formatFeatureName(feature[0])
+            }}</span>
+            <span class="text-sm text-gray-500"
+              >{{ feature[1] * 100 | number : "1.0-0" }}%</span
+            >
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div
+              class="bg-primary-500 h-2.5 rounded-full transition-all duration-500"
+              [style.width.%]="getFeatureBarWidth(feature[1])"
+            ></div>
+          </div>
+        </div>
+        }
+      </div>
+    </mat-card>
+    }
+
+    <!-- Coaching Tips -->
+    @if (res.coachingTips && res.coachingTips.length > 0) {
+    <mat-card class="mb-6 p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">
+        <mat-icon class="align-middle mr-2 text-primary-500"
+          >sports_tennis</mat-icon
+        >
+        Coaching Tips
+      </h2>
+
+      <div class="space-y-4">
+        @for (tip of res.coachingTips; track $index) {
+        <div
+          class="coaching-tip flex items-start gap-3 p-4 bg-gray-50 rounded-lg"
+        >
+          <div
+            class="tip-number flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-bold"
+          >
+            {{ $index + 1 }}
+          </div>
+          <p class="text-gray-700 flex-grow">{{ tip }}</p>
+        </div>
+        }
+      </div>
+    </mat-card>
+    }
+
+    <!-- Actions -->
+    <div class="flex justify-center gap-4">
+      <button mat-raised-button color="primary" routerLink="/dashboard">
+        <mat-icon>add</mat-icon>
+        Analyze Another Video
+      </button>
+    </div>
+    } }
+  </div>
+</div>

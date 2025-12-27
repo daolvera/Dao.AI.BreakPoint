@@ -26,7 +26,7 @@ public class JwtTokenService(
         };
         var key = GetSecurityKey(jwtOptions.Value.Key);
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expires = DateTime.Now.AddMinutes(jwtOptions.Value.AccessTokenExpiryMinutes);
+        var expires = DateTime.UtcNow.AddMinutes(jwtOptions.Value.AccessTokenExpiryMinutes);
 
         var token = new JwtSecurityToken(
             jwtOptions.Value.Issuer,
@@ -38,7 +38,7 @@ public class JwtTokenService(
 
         string accessToken = new JwtSecurityTokenHandler().WriteToken(token);
 
-        var refreshTokenExpiry = DateTime.Now.AddDays(jwtOptions.Value.RefreshTokenExpiryDays);
+        var refreshTokenExpiry = DateTime.UtcNow.AddDays(jwtOptions.Value.RefreshTokenExpiryDays);
         string refreshToken = GenerateRefreshToken();
         await appUserRepository.SaveRefreshTokenAsync(user.Id, refreshToken, refreshTokenExpiry);
 

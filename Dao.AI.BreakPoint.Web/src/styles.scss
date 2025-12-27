@@ -1,5 +1,10 @@
 @use '@angular/material' as mat;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @include mat.core();
+
 // Define the theme object.
 $DaoAIBreakPointWeb-theme: mat.define-theme((
   color: (
@@ -21,11 +26,48 @@ $DaoAIBreakPointWeb-theme: mat.define-theme((
 
 // Comment out the line below if you want to use the deprecated `color` inputs.
 // @include mat.color-variants-backwards-compatibility($DaoAIBreakPointWeb-theme);
-/* You can add global styles to this file, and also import other style files */
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+/* Global styles that work with both Material Design and Tailwind */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: #fafafa;
+}
 
 button, a {
-  cursor:pointer !important;
+  cursor: pointer !important;
+}
+
+// Ensure Material Design components work properly with Tailwind
+.mat-mdc-button-base {
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Toast/Snackbar color styles
+.toast-success {
+  --mdc-snackbar-container-color: #4caf50;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
+}
+
+.toast-error {
+  --mdc-snackbar-container-color: #f44336;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
+}
+
+.toast-info {
+  --mdc-snackbar-container-color: #2196f3;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
+}
+
+.toast-warning {
+  --mdc-snackbar-container-color: #ff9800;
+  --mdc-snackbar-supporting-text-color: #ffffff;
+  --mat-snack-bar-button-color: #ffffff;
 }

@@ -9,7 +9,8 @@ public class BreakPointDbContext : IdentityDbContext<AppUser>
     public DbSet<Player> Players { get; set; }
     public DbSet<SwingAnalysis> SwingAnalyses { get; set; }
     public DbSet<Match> Matches { get; set; }
-    public DbSet<AnalysisEvent> AnalysisEvents { get; set; }
+    public DbSet<AnalysisRequest> AnalysisRequests { get; set; }
+    public DbSet<AnalysisResult> AnalysisResults { get; set; }
 
     public BreakPointDbContext(DbContextOptions<BreakPointDbContext> options)
         : base(options) { }
@@ -33,5 +34,29 @@ public class BreakPointDbContext : IdentityDbContext<AppUser>
             .HasOne(p => p.AppUser)
             .WithOne(u => u.Player)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // AnalysisRequest -> AnalysisResult (1:1, optional)
+        modelBuilder
+            .Entity<AnalysisRequest>()
+            .HasOne(r => r.Result)
+            .WithOne(r => r.AnalysisRequest)
+            .HasForeignKey<AnalysisResult>(r => r.AnalysisRequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Player -> AnalysisResults (1:many)
+        modelBuilder
+            .Entity<Player>()
+            .HasMany(p => p.AnalysisResults)
+            .WithOne(r => r.Player)
+            .HasForeignKey(r => r.PlayerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Player -> AnalysisRequests (1:many)
+        modelBuilder
+            .Entity<Player>()
+            .HasMany(p => p.AnalysisRequests)
+            .WithOne(r => r.Player)
+            .HasForeignKey(r => r.PlayerId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

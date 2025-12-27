@@ -1,33 +1,20 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, Input } from '@angular/core';
 import { MatIcon, MatIconRegistry } from '@angular/material/icon';
 import { DomSanitizer } from '@angular/platform-browser';
 
 @Component({
   selector: 'breakpoint-logo',
   standalone: true,
-  imports: [MatIcon],
   template: `
-    <h1 class="ml-2 flex items-center">
-      <!-- todo: make icon bigger -->
-      <mat-icon
-        svgIcon="breakpoint-logo"
-        aria-hidden="false"
-        aria-label="BreakPoint.AI"
-        class="mr-2"
-      ></mat-icon>
+    <h2 class="flex items-center" [class.ml-1]="iconOnly">
+      <img src="/breakpointlogo.png" alt="BreakPoint.AI Logo" class="h-6" />
+      @if (!iconOnly) {
       {{ title }}
-    </h1>
+      }
+    </h2>
   `,
 })
 export class BreakPointLogoComponent {
+  @Input() iconOnly = false;
   protected title = 'BreakPoint.AI';
-  private iconRegistry = inject(MatIconRegistry);
-  private sanitizer = inject(DomSanitizer);
-
-  constructor() {
-    this.iconRegistry.addSvgIcon(
-      'breakpoint-logo',
-      this.sanitizer.bypassSecurityTrustResourceUrl('logo.svg')
-    );
-  }
 }
