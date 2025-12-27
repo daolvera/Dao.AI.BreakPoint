@@ -11,7 +11,10 @@ namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 public class SwingAnalyzerService(
     IVideoProcessingService VideoProcessingService,
     IOptions<MoveNetOptions> MoveNetOptions,
-    IOptions<SwingQualityModelOptions> SwingQualityOptions
+    IOptions<SwingQualityModelOptions> SwingQualityOptions,
+    ISkeletonOverlayService SkeletonOverlayService,
+    IBlobStorageService BlobStorageService,
+    ICoachingService CoachingService
 ) : ISwingAnalyzerService
 {
     private const int SequenceLength = 90;
@@ -21,195 +24,159 @@ public class SwingAnalyzerService(
     {
         // save the stream to a temporary file
         string tempFilePath = Path.GetTempFileName();
+        using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
+        {
+            await videoStream.CopyToAsync(fileStream);
+        }
+        var frameImages = VideoProcessingService.ExtractFrames(tempFilePath);
+        if (frameImages.Count == 0)
+        {
+            throw new InvalidOperationException(
+                "No frames extracted from the provided video stream."
+            );
+        }
+        var metadata = VideoProcessingService.GetVideoMetadata(tempFilePath);
+
+        // Get player's handedness for swing analysis
+        var isRightHanded = analysisRequest.Player?.Handedness != Handedness.LeftHanded;
+
+        using var processor = new MoveNetVideoProcessor(MoveNetOptions.Value.ModelPath);
+        var swingVideo = processor.ProcessVideoFrames(frameImages, metadata, isRightHanded);
+
+        if (swingVideo.Swings.Count == 0)
+        {
+            throw new InvalidOperationException("No valid swings detected in the video.");
+        }
+
+        // Analyze each swing and aggregate results
+        var swingResults = new List<SwingQualityResult>();
+        var qualityOptions = SwingQualityOptions.Value;
+
+        using var qualityService = new SwingQualityInferenceService(
+            qualityOptions.ModelPath,
+            qualityOptions.SequenceLength,
+            qualityOptions.NumFeatures
+        );
+
+        foreach (var swing in swingVideo.Swings)
+        {
+            var preprocessed = await SwingPreprocessingService.PreprocessSwingAsync(
+                swing,
+                SequenceLength,
+                NumFeatures
+            );
+
+            var result = qualityService.RunInference(preprocessed);
+            swingResults.Add(result);
+        }
+
+        // Aggregate results (use best swing for now, could average in future)
+        var bestResult = swingResults.OrderByDescending(r => r.QualityScore).First();
+        var bestSwingIndex = swingResults.IndexOf(bestResult);
+        var bestSwing = swingVideo.Swings[bestSwingIndex];
+
+        // Create or update the AnalysisResult
+        analysisRequest.Result ??= new AnalysisResult
+        {
+            AnalysisRequestId = analysisRequest.Id,
+            PlayerId = analysisRequest.PlayerId,
+            StrokeType = analysisRequest.StrokeType,
+            VideoBlobUrl = analysisRequest.VideoBlobUrl,
+        };
+
+        // Populate the result with quality score and feature importance
+        analysisRequest.Result.QualityScore = bestResult.QualityScore;
+        analysisRequest.Result.FeatureImportanceJson = JsonSerializer.Serialize(
+            bestResult.FeatureImportance
+        );
+
+        // Generate coaching tips using AI coaching service
+        var ustaRating = analysisRequest.Player?.UstaRating ?? 3.0; // Default to intermediate
+        var coachingTips = await CoachingService.GenerateCoachingTipsAsync(
+            analysisRequest.StrokeType,
+            bestResult.QualityScore,
+            bestResult.FeatureImportance,
+            ustaRating
+        );
+        analysisRequest.Result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
+
+        // Generate skeleton overlay GIF for the best swing
+        await GenerateAndUploadSkeletonOverlayAsync(
+            frameImages,
+            bestSwing,
+            bestResult,
+            metadata.Width,
+            metadata.Height,
+            analysisRequest
+        );
+
+        analysisRequest.Status = AnalysisStatus.Completed;
+    }
+
+    /// <summary>
+    /// Generate skeleton overlay GIF and upload to blob storage
+    /// </summary>
+    private async Task GenerateAndUploadSkeletonOverlayAsync(
+        List<byte[]> allFrames,
+        SwingData swing,
+        SwingQualityResult result,
+        int videoWidth,
+        int videoHeight,
+        AnalysisRequest analysisRequest
+    )
+    {
         try
         {
-            using (var fileStream = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write))
+            // Extract only the frames that correspond to this swing
+            var swingFrameImages = new List<byte[]>();
+            for (int i = 0; i < swing.Frames.Count && i < allFrames.Count; i++)
             {
-                await videoStream.CopyToAsync(fileStream);
-            }
-            var frameImages = VideoProcessingService.ExtractFrames(tempFilePath);
-            if (frameImages.Count == 0)
-            {
-                throw new InvalidOperationException(
-                    "No frames extracted from the provided video stream."
-                );
-            }
-            var metadata = VideoProcessingService.GetVideoMetadata(tempFilePath);
-
-            // Get player's handedness for swing analysis
-            var isRightHanded = analysisRequest.Player?.Handedness != Handedness.LeftHanded;
-
-            using var processor = new MoveNetVideoProcessor(MoveNetOptions.Value.ModelPath);
-            var swingVideo = processor.ProcessVideoFrames(frameImages, metadata, isRightHanded);
-
-            if (swingVideo.Swings.Count == 0)
-            {
-                throw new InvalidOperationException("No valid swings detected in the video.");
+                // Assuming swing frames align with video frames
+                // In practice, you'd use frame indices from SwingData
+                swingFrameImages.Add(allFrames[Math.Min(i, allFrames.Count - 1)]);
             }
 
-            // Analyze each swing and aggregate results
-            var swingResults = new List<SwingQualityResult>();
-            var qualityOptions = SwingQualityOptions.Value;
+            if (swingFrameImages.Count == 0)
+            {
+                return; // No frames to process
+            }
 
-            using var qualityService = new SwingQualityInferenceService(
-                qualityOptions.ModelPath,
-                qualityOptions.SequenceLength,
-                qualityOptions.NumFeatures
+            // Generate the skeleton overlay GIF
+            var gifBytes = SkeletonOverlayService.GenerateOverlayGif(
+                swingFrameImages,
+                swing,
+                result.FeatureImportance,
+                result.QualityScore,
+                videoWidth,
+                videoHeight,
+                frameDelayMs: 50 // ~20 FPS
             );
 
-            foreach (var swing in swingVideo.Swings)
+            if (gifBytes.Length == 0)
             {
-                var preprocessed = await SwingPreprocessingService.PreprocessSwingAsync(
-                    swing,
-                    SequenceLength,
-                    NumFeatures
-                );
-
-                var result = qualityService.RunInference(preprocessed);
-                swingResults.Add(result);
+                return; // No GIF generated
             }
 
-            // Aggregate results (use best swing for now, could average in future)
-            var bestResult = swingResults.OrderByDescending(r => r.QualityScore).First();
+            // Upload to blob storage
+            var fileName = $"skeleton-overlay-{analysisRequest.Id}.gif";
+            using var gifStream = new MemoryStream(gifBytes);
 
-            // Create or update the AnalysisResult
-            if (analysisRequest.Result == null)
-            {
-                analysisRequest.Result = new AnalysisResult
-                {
-                    AnalysisRequestId = analysisRequest.Id,
-                    PlayerId = analysisRequest.PlayerId,
-                    StrokeType = analysisRequest.StrokeType,
-                    VideoBlobUrl = analysisRequest.VideoBlobUrl,
-                };
-            }
-
-            // Populate the result with quality score and feature importance
-            analysisRequest.Result.QualityScore = bestResult.QualityScore;
-            analysisRequest.Result.FeatureImportanceJson = JsonSerializer.Serialize(
-                bestResult.FeatureImportance
+            var gifUrl = await BlobStorageService.UploadImageAsync(
+                gifStream,
+                fileName,
+                "image/gif"
             );
 
-            // Generate coaching tips based on weak features
-            var coachingTips = GenerateCoachingTips(bestResult, analysisRequest.StrokeType);
-            analysisRequest.Result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
-
-            analysisRequest.Status = AnalysisStatus.Completed;
-        }
-        finally
-        {
-            // Clean up temp file
-            if (File.Exists(tempFilePath))
+            // Store the URL in the result
+            if (analysisRequest.Result != null)
             {
-                try
-                {
-                    File.Delete(tempFilePath);
-                }
-                catch
-                { /* Ignore cleanup errors */
-                }
+                analysisRequest.Result.SkeletonOverlayGifUrl = gifUrl;
             }
         }
-    }
-
-    /// <summary>
-    /// Generate coaching tips based on the swing analysis results
-    /// </summary>
-    private static List<string> GenerateCoachingTips(
-        SwingQualityResult result,
-        SwingType strokeType
-    )
-    {
-        var tips = new List<string>();
-        var weakFeatures = result.GetWeakFeatures(3);
-        var strongFeatures = result.GetTopFeatures(2);
-
-        // Add tips based on weak features
-        foreach (var (featureName, _) in weakFeatures)
+        catch (Exception)
         {
-            var tip = GetTipForFeature(featureName, strokeType, isStrength: false);
-            if (!string.IsNullOrEmpty(tip))
-            {
-                tips.Add(tip);
-            }
+            // Log error but don't fail the analysis if overlay generation fails
+            // The skeleton overlay is supplementary to the main analysis
         }
-
-        // Add encouragement for strong features
-        foreach (var (featureName, _) in strongFeatures)
-        {
-            var tip = GetTipForFeature(featureName, strokeType, isStrength: true);
-            if (!string.IsNullOrEmpty(tip))
-            {
-                tips.Add(tip);
-            }
-        }
-
-        // Add general tip based on quality score
-        if (result.QualityScore < 40)
-        {
-            tips.Add("Focus on the fundamentals: proper stance, grip, and early preparation.");
-        }
-        else if (result.QualityScore < 60)
-        {
-            tips.Add("Good foundation! Work on timing and body coordination for more power.");
-        }
-        else if (result.QualityScore < 80)
-        {
-            tips.Add("Strong technique! Fine-tune your follow-through for consistency.");
-        }
-        else
-        {
-            tips.Add("Excellent form! Maintain this technique and focus on shot placement.");
-        }
-
-        return tips.Take(5).ToList(); // Limit to 5 tips
-    }
-
-    /// <summary>
-    /// Get a coaching tip for a specific feature
-    /// </summary>
-    private static string? GetTipForFeature(
-        string featureName,
-        SwingType strokeType,
-        bool isStrength
-    )
-    {
-        if (isStrength)
-        {
-            return featureName switch
-            {
-                string s when s.Contains("Wrist") && s.Contains("Velocity") =>
-                    "Great wrist acceleration - this generates good racket head speed.",
-                string s when s.Contains("Shoulder") && s.Contains("Angle") =>
-                    "Good shoulder rotation - key for power generation.",
-                string s when s.Contains("Hip") && s.Contains("Angle") =>
-                    "Strong hip rotation - excellent kinetic chain usage.",
-                _ => null,
-            };
-        }
-
-        // Improvement tips
-        return featureName switch
-        {
-            string s when s.Contains("Wrist") && s.Contains("Velocity") =>
-                "Work on wrist snap through contact for more racket head speed.",
-            string s when s.Contains("Wrist") && s.Contains("Acceleration") =>
-                "Focus on accelerating through the ball, not slowing down at contact.",
-            string s when s.Contains("Shoulder") && s.Contains("Velocity") =>
-                "Rotate your shoulders more fully during the swing.",
-            string s when s.Contains("Shoulder") && s.Contains("Angle") =>
-                "Turn your shoulders earlier in the backswing preparation.",
-            string s when s.Contains("Hip") && s.Contains("Angle") =>
-                "Load your hips during preparation and rotate through the shot.",
-            string s when s.Contains("Hip") && s.Contains("Velocity") =>
-                "Start the forward swing with hip rotation before arm movement.",
-            string s when s.Contains("Elbow") && s.Contains("Angle") => strokeType
-            == SwingType.Serve
-                ? "Keep your elbow high during the trophy position."
-                : "Maintain a comfortable elbow angle through contact.",
-            string s when s.Contains("Knee") =>
-                "Bend your knees more for better balance and power.",
-            _ => null,
-        };
     }
 }

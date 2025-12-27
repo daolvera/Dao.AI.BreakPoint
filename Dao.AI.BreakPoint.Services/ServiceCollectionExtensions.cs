@@ -44,6 +44,7 @@ public static class ServiceCollectionExtensions
             services.Configure<SwingQualityModelOptions>(_ => { });
         }
 
+        services.AddSingleton<ISkeletonOverlayService, SkeletonOverlayService>();
         services.AddScoped<ISwingAnalyzerService, SwingAnalyzerService>();
         return services;
     }

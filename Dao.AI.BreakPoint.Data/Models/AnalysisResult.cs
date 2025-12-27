@@ -44,9 +44,16 @@ public class AnalysisResult : UpdatableModel
     public string CoachingTipsJson { get; set; } = "[]";
 
     /// <summary>
-    /// URL to the generated skeleton overlay image
+    /// URL to the generated skeleton overlay image (PNG)
+    /// Shows worst frame with annotated skeleton
     /// </summary>
     public string? SkeletonOverlayUrl { get; set; }
+
+    /// <summary>
+    /// URL to the generated skeleton overlay animation (GIF)
+    /// Shows the full swing with skeleton overlay and problem joint highlighting
+    /// </summary>
+    public string? SkeletonOverlayGifUrl { get; set; }
 
     /// <summary>
     /// URL to the original video in blob storage

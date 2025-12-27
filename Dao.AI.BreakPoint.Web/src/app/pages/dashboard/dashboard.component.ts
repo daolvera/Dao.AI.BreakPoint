@@ -83,10 +83,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   protected strokeTypeOptions: { value: SwingType; label: string }[] = [
     { value: SwingType.ForehandGroundStroke, label: 'Forehand Ground Stroke' },
     { value: SwingType.BackhandGroundStroke, label: 'Backhand Ground Stroke' },
-    { value: SwingType.Serve, label: 'Serve' },
-    { value: SwingType.ForehandVolley, label: 'Forehand Volley' },
-    { value: SwingType.BackhandVolley, label: 'Backhand Volley' },
-    { value: SwingType.SmashVolley, label: 'Smash / Overhead' },
   ];
 
   // Computed values
