@@ -60,7 +60,7 @@ public class ImageProcessor : IImageProcessor
         // Convert NDArray to byte array
         var imageBytes = image.ToByteArray();
 
-        using var mat = new Mat(height, width, MatType.CV_8UC3, imageBytes);
+        using var mat = Mat.FromPixelData(height, width, MatType.CV_8UC3, imageBytes);
 
         // 1. Calculate crop coordinates
         int cropX = Math.Max(0, (int)(cropRegion.XMin * width));

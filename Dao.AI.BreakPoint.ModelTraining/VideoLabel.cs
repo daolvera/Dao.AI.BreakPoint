@@ -1,5 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
-using Dao.AI.BreakPoint.Data.Enums;
+﻿using Dao.AI.BreakPoint.Data.Enums;
+using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
@@ -9,10 +10,10 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 /// </summary>
 /// <example>
 /// {
-///   "video_file": "forehand_pro.mp4",
-///   "stroke_type": "ForehandGroundStroke",
-///   "quality_score": 85,
-///   "is_right_handed": true
+///   "VideoFile": "forehand_pro.mp4",
+///   "StrokeType": "ForehandGroundStroke",
+///   "QualityScore": 85,
+///   "IsRightHanded": true
 /// }
 /// </example>
 internal class VideoLabel
@@ -25,6 +26,7 @@ internal class VideoLabel
     /// <summary>
     /// The type of stroke in the video (forehand, backhand, serve, etc.)
     /// </summary>
+    [JsonConverter(typeof(JsonStringEnumConverter))]
     public SwingType StrokeType { get; set; }
 
     /// <summary>

@@ -2,6 +2,7 @@
 
 public enum SwingPhase
 {
+    None,
     Preparation,
     Backswing,
     Swing,

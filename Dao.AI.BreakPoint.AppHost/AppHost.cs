@@ -1,20 +1,25 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var mysql = builder.AddMySql("mysql")
+var postgres = builder.AddPostgres("postgres")
     .WithLifetime(ContainerLifetime.Persistent);
 
-var breakPointDb = mysql.AddDatabase("BreakPointDb");
+var breakPointDb = postgres.AddDatabase("BreakPointDb");
 
-var breakPointApi = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("breakPointApi")
+var migrations = builder.AddProject<Projects.Dao_AI_BreakPoint_Migrations>("BreakPointMigrations")
     .WithReference(breakPointDb)
-    .WaitFor(breakPointDb)
+    .WaitFor(breakPointDb);
+
+var breakPointApi = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("BreakPointApi")
+    .WaitFor(migrations)
+    .WithReference(breakPointDb)
     .WithHttpHealthCheck("/health");
 
-var breakPointApp = builder.AddNpmApp("webapp", "../Dao.AI.BreakPoint.Web")
+var breakPointApp = builder.AddJavaScriptApp("BreakPoint", "../Dao.AI.BreakPoint.Web", "start")
     .WithReference(breakPointApi)
     .WaitFor(breakPointApi)
     .WithHttpEndpoint(port: 3000, env: "PORT")
     .WithExternalHttpEndpoints()
+    .WithNpm(installCommand: "ci")
     .PublishAsDockerFile();
 
 var frontendHttpEndpoint = breakPointApp.GetEndpoint("http");

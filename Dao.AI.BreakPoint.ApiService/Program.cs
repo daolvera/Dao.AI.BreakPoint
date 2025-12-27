@@ -52,7 +52,7 @@ else
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IAnalysisNotificationService, AnalysisNotificationService>();
 
-builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");
+builder.AddNpgsqlDbContext<BreakPointDbContext>("BreakPointDb");
 
 builder.AddBreakPointAuthenticationAndAuthorization();
 

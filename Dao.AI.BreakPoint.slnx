@@ -8,6 +8,7 @@
   <Project Path="Dao.AI.BreakPoint.ApiService/Dao.AI.BreakPoint.ApiService.csproj" />
   <Project Path="Dao.AI.BreakPoint.AppHost/Dao.AI.BreakPoint.AppHost.csproj" />
   <Project Path="Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj" Id="7ebbb13d-e638-4368-a862-ecf79b910617" />
+  <Project Path="Dao.AI.BreakPoint.Migrations/Dao.AI.BreakPoint.Migrations.csproj" />
   <Project Path="Dao.AI.BreakPoint.ModelTraining/Dao.AI.BreakPoint.ModelTraining.csproj" Id="c9998740-f09c-4e6d-b02a-053343391f06" />
   <Project Path="Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj" />
   <Project Path="Dao.AI.BreakPoint.Services.Tests/Dao.AI.BreakPoint.Services.Tests.csproj" Id="443d3ca7-6e20-4e0f-853e-436fa6d84f10" />

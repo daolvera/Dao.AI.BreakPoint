@@ -19,7 +19,8 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
     /// </summary>
     public async Task<List<TrainingSwingVideo>> ProcessVideoDirectoryAsync(
         string videoDirectory,
-        string moveNetModelPath
+        string moveNetModelPath,
+        string phaseClassifierModelPath
     )
     {
         if (!Directory.Exists(videoDirectory))
@@ -35,7 +36,7 @@ internal class TrainingDatasetLoader(IVideoProcessingService VideoProcessingServ
             .Where(f => videoExtensions.Contains(Path.GetExtension(f).ToLower()))
             .ToArray();
 
-        using var processor = new MoveNetVideoProcessor(moveNetModelPath);
+        using var processor = new MoveNetVideoProcessor(moveNetModelPath, phaseClassifierModelPath);
 
         foreach (var videoPath in videoFiles)
         {

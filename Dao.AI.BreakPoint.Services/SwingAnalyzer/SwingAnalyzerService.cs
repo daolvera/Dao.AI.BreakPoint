@@ -11,6 +11,7 @@ namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 public class SwingAnalyzerService(
     IVideoProcessingService VideoProcessingService,
     IOptions<MoveNetOptions> MoveNetOptions,
+    IOptions<SwingPhaseClassifierOptions> PhaseClassifierOptions,
     IOptions<SwingQualityModelOptions> SwingQualityOptions,
     ISkeletonOverlayService SkeletonOverlayService,
     IBlobStorageService BlobStorageService,
@@ -40,7 +41,10 @@ public class SwingAnalyzerService(
         // Get player's handedness for swing analysis
         var isRightHanded = analysisRequest.Player?.Handedness != Handedness.LeftHanded;
 
-        using var processor = new MoveNetVideoProcessor(MoveNetOptions.Value.ModelPath);
+        using var processor = new MoveNetVideoProcessor(
+            MoveNetOptions.Value.ModelPath,
+            PhaseClassifierOptions.Value.ModelPath
+        );
         var swingVideo = processor.ProcessVideoFrames(frameImages, metadata, isRightHanded);
 
         if (swingVideo.Swings.Count == 0)

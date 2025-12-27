@@ -4,9 +4,14 @@ using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
 namespace Dao.AI.BreakPoint.Services.MoveNet;
 
-public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
+/// <summary>
+/// Creates a new MoveNetVideoProcessor with pose estimation and phase classification.
+/// </summary>
+/// <param name="moveNetModelPath">Path to MoveNet ONNX model for pose estimation.</param>
+/// <param name="phaseClassifierModelPath">Path to swing phase classifier ONNX model.</param>
+public partial class MoveNetVideoProcessor(string moveNetModelPath, string phaseClassifierModelPath)
+    : IDisposable
 {
-    public const string ModelPath = "";
     public static readonly Dictionary<JointFeatures, int> KeypointDict = new()
     {
         { JointFeatures.Nose, 0 },
@@ -28,9 +33,12 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         { JointFeatures.RightAnkle, 16 },
     };
     public static int NumKeyPoints => KeypointDict.Count;
-    private readonly MoveNetInferenceService _inferenceService = new(modelPath);
+
+    private readonly MoveNetInferenceService _inferenceService = new(moveNetModelPath);
+    private readonly SwingPhaseClassifierService _phaseClassifier = new(phaseClassifierModelPath);
     private const float MinCropKeypointScore = 0.2f;
     private const float MinConfidence = 0.3f;
+    private const int MinSwingFrames = 15;
 
     public ProcessedSwingVideo ProcessVideoFrames(
         List<byte[]> frameImages,
@@ -42,7 +50,6 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         var cropRegion = CropRegion.InitCropRegion(videoMetadata.Height, videoMetadata.Width);
 
         List<FrameData> currentSwingFrames = [];
-        int framesSinceLastSwing = 0;
 
         float deltaTime = 1.0f / videoMetadata.FrameRate;
 
@@ -52,7 +59,6 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         for (int frameIndex = 0; frameIndex < frameImages.Count; frameIndex++)
         {
             var frame = frameImages[frameIndex];
-            framesSinceLastSwing++;
 
             var keypoints = _inferenceService.RunInference(
                 frame,
@@ -70,16 +76,33 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
                 videoMetadata.Width
             );
 
-            var phase = DetermineSwingPhase(
+            var classificationResult = _phaseClassifier.ClassifyPhase(
                 keypoints,
                 angles,
                 isRightHanded,
                 prevFrame,
-                prev2Frame,
-                deltaTime
+                prev2Frame
             );
-            if (phase == SwingPhase.Preparation)
+
+            var phase = classificationResult.Phase;
+
+            // Non-swing phases (None/Preparation) - not part of active swing
+            if (!IsActiveSwingPhase(phase))
             {
+                // Check if we were tracking a swing that's now complete
+                if (
+                    currentSwingFrames.Count >= MinSwingFrames
+                    && HasCompletedSwingProgression(currentSwingFrames)
+                )
+                {
+                    swings.Add(new SwingData { Frames = [.. currentSwingFrames] });
+                }
+
+                // Reset tracking
+                currentSwingFrames.Clear();
+                cropRegion = CropRegion.InitCropRegion(videoMetadata.Height, videoMetadata.Width);
+                prev2Frame = prevFrame;
+                prevFrame = null;
                 continue;
             }
 
@@ -115,19 +138,21 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
                 FrameIndex = frameIndex,
             };
 
+            // Check if this completes the current swing
             if (IsSwingComplete(currentSwingFrames, currentFrame))
             {
+                currentSwingFrames.Add(currentFrame);
                 swings.Add(new SwingData { Frames = [.. currentSwingFrames] });
 
                 currentSwingFrames.Clear();
-                framesSinceLastSwing = 0;
                 cropRegion = CropRegion.InitCropRegion(videoMetadata.Height, videoMetadata.Width);
                 prev2Frame = null;
                 prevFrame = null;
                 continue;
             }
 
-            if (!IsFrameDuringSwing(currentFrame, currentSwingFrames))
+            // Check if this frame should be included in the current swing
+            if (!ShouldIncludeFrame(currentFrame, currentSwingFrames))
             {
                 continue;
             }
@@ -140,7 +165,11 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
             prevFrame = currentFrame;
         }
 
-        if (currentSwingFrames.Count >= 15)
+        // Handle any remaining swing at end of video
+        if (
+            currentSwingFrames.Count >= MinSwingFrames
+            && HasCompletedSwingProgression(currentSwingFrames)
+        )
         {
             swings.Add(new SwingData { Frames = currentSwingFrames });
         }
@@ -154,30 +183,100 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         };
     }
 
+    /// <summary>
+    /// Checks if the phase is an active swing phase (Backswing, Swing, or FollowThrough).
+    /// None and Preparation are not considered active swing phases.
+    /// </summary>
+    private static bool IsActiveSwingPhase(SwingPhase phase) =>
+        phase is SwingPhase.Backswing or SwingPhase.Swing or SwingPhase.FollowThrough;
+
+    /// <summary>
+    /// A swing is complete when:
+    /// 1. We've accumulated enough frames
+    /// 2. We've reached FollowThrough phase
+    /// 3. The current frame shows a phase regression (e.g., back to Backswing after FollowThrough)
+    /// </summary>
     private static bool IsSwingComplete(List<FrameData> currentSwingFrames, FrameData currentFrame)
     {
-        bool containsSufficientBackswing =
-            currentSwingFrames.Where(frame => frame.SwingPhase == SwingPhase.Backswing).Count()
-            >= 10;
-        bool containsSufficientSwing =
-            currentSwingFrames.Where(frame => frame.SwingPhase == SwingPhase.Swing).Count() >= 5;
-        bool containsSufficientFollowThrough =
-            currentSwingFrames.Where(frame => frame.SwingPhase == SwingPhase.FollowThrough).Count()
-            >= 5;
-        return currentFrame.SwingPhase != SwingPhase.FollowThrough
-            && containsSufficientBackswing
-            && containsSufficientSwing
-            && containsSufficientFollowThrough;
+        if (currentSwingFrames.Count < MinSwingFrames)
+        {
+            return false;
+        }
+
+        // Check if we've completed the swing progression (have FollowThrough frames)
+        bool hasFollowThrough = currentSwingFrames.Any(f =>
+            f.SwingPhase == SwingPhase.FollowThrough
+        );
+        if (!hasFollowThrough)
+        {
+            return false;
+        }
+
+        var lastPhase = currentSwingFrames.Last().SwingPhase;
+        var currentPhase = currentFrame.SwingPhase;
+
+        // Swing is complete when AI detects a phase regression from FollowThrough
+        // (e.g., FollowThrough -> Backswing indicates a new swing is starting)
+        return lastPhase == SwingPhase.FollowThrough && currentPhase == SwingPhase.Backswing;
     }
 
-    private static bool IsFrameDuringSwing(
+    /// <summary>
+    /// Checks if a swing has completed the full progression (Backswing -> Swing -> FollowThrough).
+    /// </summary>
+    private static bool HasCompletedSwingProgression(List<FrameData> swingFrames)
+    {
+        bool hasBackswing = swingFrames.Any(f => f.SwingPhase == SwingPhase.Backswing);
+        bool hasSwing = swingFrames.Any(f => f.SwingPhase == SwingPhase.Swing);
+        bool hasFollowThrough = swingFrames.Any(f => f.SwingPhase == SwingPhase.FollowThrough);
+
+        return hasBackswing && hasSwing && hasFollowThrough;
+    }
+
+    /// <summary>
+    /// Determines if a frame should be included in the current swing based on AI phase classification.
+    /// Relies primarily on the AI's phase detection while enforcing basic data quality checks.
+    /// </summary>
+    private static bool ShouldIncludeFrame(
         FrameData currentFrame,
         List<FrameData> currentSwingFrames
     )
     {
         var keypoints = currentFrame.Joints;
-        var swingPhase = currentFrame.SwingPhase;
-        // Check if key tennis swing joints are visible with sufficient confidence
+        var phase = currentFrame.SwingPhase;
+
+        // Data quality check: ensure upper body is visible for reliable swing analysis
+        if (!IsUpperBodyVisible(keypoints))
+        {
+            return false;
+        }
+
+        // Starting a new swing - must begin with Backswing (AI determines this)
+        if (currentSwingFrames.Count == 0)
+        {
+            return phase == SwingPhase.Backswing;
+        }
+
+        var lastPhase = currentSwingFrames.Last().SwingPhase;
+
+        // Backswing -> Backswing or Swing
+        // Swing -> Swing or FollowThrough
+        // FollowThrough -> FollowThrough
+        return (lastPhase, phase) switch
+        {
+            (SwingPhase.Backswing, SwingPhase.Backswing) => true,
+            (SwingPhase.Backswing, SwingPhase.Swing) => true,
+            (SwingPhase.Swing, SwingPhase.Swing) => true,
+            (SwingPhase.Swing, SwingPhase.FollowThrough) => true,
+            (SwingPhase.FollowThrough, SwingPhase.FollowThrough) => true,
+            _ => false,
+        };
+    }
+
+    /// <summary>
+    /// Checks if upper body joints are visible with sufficient confidence for reliable analysis.
+    /// </summary>
+    private static bool IsUpperBodyVisible(JointData[] keypoints)
+    {
         var leftShoulder = keypoints[(int)JointFeatures.LeftShoulder];
         var rightShoulder = keypoints[(int)JointFeatures.RightShoulder];
         var leftElbow = keypoints[(int)JointFeatures.LeftElbow];
@@ -185,160 +284,9 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         var leftWrist = keypoints[(int)JointFeatures.LeftWrist];
         var rightWrist = keypoints[(int)JointFeatures.RightWrist];
 
-        // Check if upper body is visible (essential for swing detection)
-        bool upperBodyVisible =
-            (leftShoulder.Confidence > MinConfidence || rightShoulder.Confidence > MinConfidence)
+        return (leftShoulder.Confidence > MinConfidence || rightShoulder.Confidence > MinConfidence)
             && (leftElbow.Confidence > MinConfidence || rightElbow.Confidence > MinConfidence)
             && (leftWrist.Confidence > MinConfidence || rightWrist.Confidence > MinConfidence);
-
-        if (!upperBodyVisible)
-        {
-            return false;
-        }
-        bool isStartOfSwing = currentSwingFrames.Count == 0;
-
-        // If we're not currently tracking a swing, only start if we detect backswing
-        if (isStartOfSwing)
-        {
-            return swingPhase == SwingPhase.Backswing;
-        }
-        var lastSwingFramePhase = currentSwingFrames.Last().SwingPhase;
-        // the swing must progress in order: backswing -> swing -> follow through
-        // if a person was in back swing, they should either be in swing or still in backswing
-        if (lastSwingFramePhase == SwingPhase.Backswing)
-        {
-            return swingPhase == SwingPhase.Backswing || swingPhase == SwingPhase.Swing;
-        }
-        // if last frame was swing, only continue if still in swing or follow through
-        else if (lastSwingFramePhase == SwingPhase.Swing)
-        {
-            return swingPhase == SwingPhase.Swing || swingPhase == SwingPhase.FollowThrough;
-        }
-        // if last frame was follow through, only continue if still in follow through
-        else if (lastSwingFramePhase == SwingPhase.FollowThrough)
-        {
-            return swingPhase == SwingPhase.FollowThrough;
-        }
-        return false;
-    }
-
-    private static SwingPhase DetermineSwingPhase(
-        JointData[] keypoints,
-        float[] angles,
-        bool isRightHanded,
-        FrameData? prevFrame = null,
-        FrameData? prev2Frame = null,
-        float deltaTime = 1 / 30f
-    )
-    {
-        // Get key points for swing analysis
-        var leftShoulder = keypoints[(int)JointFeatures.LeftShoulder];
-        var rightShoulder = keypoints[(int)JointFeatures.RightShoulder];
-        var leftWrist = keypoints[(int)JointFeatures.LeftWrist];
-        var rightWrist = keypoints[(int)JointFeatures.RightWrist];
-        var leftHip = keypoints[(int)JointFeatures.LeftHip];
-        var rightHip = keypoints[(int)JointFeatures.RightHip];
-
-        // Need both shoulders and at least one hip visible
-        if (
-            leftShoulder.Confidence < MinConfidence
-            || rightShoulder.Confidence < MinConfidence
-            || (leftHip.Confidence < MinConfidence && rightHip.Confidence < MinConfidence)
-        )
-        {
-            return SwingPhase.Preparation;
-        }
-
-        // Use player's known handedness to determine hitting arm
-        bool useRightArm = isRightHanded;
-
-        var hittingWrist = useRightArm ? rightWrist : leftWrist;
-        if (hittingWrist.Confidence < MinConfidence)
-        {
-            return SwingPhase.Preparation;
-        }
-
-        // Calculate body positioning metrics with motion analysis
-        return AnalyzeBodyPosition(
-            leftShoulder,
-            rightShoulder,
-            leftHip,
-            rightHip,
-            hittingWrist,
-            useRightArm,
-            angles,
-            prevFrame,
-            prev2Frame,
-            deltaTime,
-            MinConfidence
-        );
-    }
-
-    private static SwingPhase AnalyzeBodyPosition(
-        JointData leftShoulder,
-        JointData rightShoulder,
-        JointData leftHip,
-        JointData rightHip,
-        JointData hittingWrist,
-        bool useRightArm,
-        float[] angles,
-        FrameData? prevFrame,
-        FrameData? prev2Frame,
-        float deltaTime,
-        float MinConfidence
-    )
-    {
-        var position = new BodyPosition();
-
-        // Calculate body center
-        float bodyCenterX = (leftShoulder.X + rightShoulder.X) / 2;
-
-        // Shoulder rotation: negative = sideways/coiled, positive = opening/squared
-        float shoulderWidth = rightShoulder.X - leftShoulder.X;
-        position.ShoulderRotation = shoulderWidth; // Wider = more squared to court
-
-        // Hip rotation (if both hips visible)
-        if (leftHip.Confidence > MinConfidence && rightHip.Confidence > MinConfidence)
-        {
-            float hipWidth = rightHip.X - leftHip.X;
-            position.HipRotation = hipWidth;
-            position.HipsOpen = Math.Abs(hipWidth) > 0.08f; // Significant hip separation = open
-        }
-        else
-        {
-            position.HipRotation = 0;
-            position.HipsOpen = false;
-        }
-
-        // Racket position relative to body
-        position.RacketPosition = hittingWrist.X - bodyCenterX;
-        if (!useRightArm)
-            position.RacketPosition *= -1; // Flip for left-handed
-
-        // Calculate motion-based metrics
-        position.RacketSpeed = hittingWrist.Speed ?? 0;
-        position.RacketAcceleration = hittingWrist.Acceleration ?? 0;
-
-        // Elbow angle and angular velocity for hitting arm
-        int elbowIndex = useRightArm ? 1 : 0; // RightElbowAngle : LeftElbowAngle
-        position.ElbowAngle = angles[elbowIndex];
-        position.ElbowAngularVelocity = CalculateAngularVelocity(
-            elbowIndex,
-            prevFrame,
-            angles,
-            deltaTime
-        );
-
-        // Shoulder angular velocity
-        var hittingShoulder = useRightArm ? rightShoulder : leftShoulder;
-        position.ShoulderAngularVelocity = hittingShoulder.Speed ?? 0;
-
-        // Body positioning states
-        position.ShouldersSquared = Math.Abs(position.ShoulderRotation) > 0.06f; // Wide shoulder separation
-        position.IsCoiled = position.RacketPosition < -0.05f || !position.ShouldersSquared; // Racket back, narrow shoulders
-
-        // Enhanced tennis-specific phase detection using motion analysis
-        return DetermineSwingPhaseFromMotion(position, prevFrame, prev2Frame);
     }
 
     private static CropRegion DetermineCropRegion(
@@ -491,131 +439,10 @@ public partial class MoveNetVideoProcessor(string modelPath) : IDisposable
         return Math.Abs((currentHipWidth - prevHipWidth) / deltaTime);
     }
 
-    private static float CalculateAngularVelocity(
-        int angleIndex,
-        FrameData? prevFrame,
-        float[] currentAngles,
-        float deltaTime
-    )
-    {
-        if (prevFrame == null)
-            return 0;
-
-        float currentAngle = currentAngles[angleIndex];
-        float prevAngle = angleIndex switch
-        {
-            0 => prevFrame.LeftElbowAngle,
-            1 => prevFrame.RightElbowAngle,
-            2 => prevFrame.LeftShoulderAngle,
-            3 => prevFrame.RightShoulderAngle,
-            4 => prevFrame.LeftHipAngle,
-            5 => prevFrame.RightHipAngle,
-            6 => prevFrame.LeftKneeAngle,
-            7 => prevFrame.RightKneeAngle,
-            _ => 0,
-        };
-
-        return (currentAngle - prevAngle) / deltaTime;
-    }
-
-    private static SwingPhase DetermineSwingPhaseFromMotion(
-        BodyPosition position,
-        FrameData? prevFrame,
-        FrameData? prev2Frame
-    )
-    {
-        // Tennis-specific motion thresholds
-        const float HighRacketSpeed = 15.0f; // pixels per frame
-        const float MediumRacketSpeed = 8.0f;
-        const float LowRacketSpeed = 3.0f;
-        const float HighAcceleration = 5.0f;
-        const float BackswingElbowAngle = 100.0f; // degrees
-        const float ContactElbowAngle = 150.0f;
-
-        // PREPARATION: Low speed, neutral position
-        if (
-            position.RacketSpeed < LowRacketSpeed
-            && Math.Abs(position.RacketPosition) < 0.03f
-            && position.ElbowAngle > 120
-            && position.ElbowAngle < 170
-        )
-        {
-            return SwingPhase.Preparation;
-        }
-
-        // BACKSWING: Building speed, racket going back, elbow bent
-        if (
-            (position.IsCoiled || position.RacketPosition < -0.03f)
-            && position.RacketSpeed >= LowRacketSpeed
-            && position.ElbowAngle < BackswingElbowAngle
-        )
-        {
-            return SwingPhase.Backswing;
-        }
-
-        // SWING: High speed with high acceleration, transitioning position
-        if (
-            position.RacketSpeed > MediumRacketSpeed
-            && position.RacketAcceleration > HighAcceleration
-            && position.ElbowAngle > BackswingElbowAngle
-            && position.ElbowAngle < ContactElbowAngle
-        )
-        {
-            return SwingPhase.Swing;
-        }
-
-        // FOLLOW-THROUGH: High speed but decreasing acceleration, racket extended
-        if (
-            (position.ShouldersSquared || position.RacketPosition > 0.05f)
-            && (position.RacketSpeed > LowRacketSpeed || position.ElbowAngle > ContactElbowAngle)
-        )
-        {
-            return SwingPhase.FollowThrough;
-        }
-
-        // Enhanced logic using motion history
-        if (prevFrame != null)
-        {
-            float speedTrend = position.RacketSpeed - prevFrame.WristSpeed;
-
-            // Accelerating racket with coiled position = backswing
-            if (speedTrend > 0 && position.IsCoiled)
-            {
-                return SwingPhase.Backswing;
-            }
-
-            // Decelerating racket with extended position = follow through
-            if (speedTrend < -2.0f && position.ShouldersSquared)
-            {
-                return SwingPhase.FollowThrough;
-            }
-        }
-
-        // Fallback to original position-based logic
-        if (position.IsCoiled || position.RacketPosition < -0.03f)
-        {
-            return SwingPhase.Backswing;
-        }
-
-        if (position.ShouldersSquared || position.RacketPosition > 0.05f)
-        {
-            return SwingPhase.FollowThrough;
-        }
-
-        if (
-            position.HipsOpen
-            || (position.RacketPosition > -0.03f && position.RacketPosition < 0.05f)
-        )
-        {
-            return SwingPhase.Swing;
-        }
-
-        return SwingPhase.Preparation;
-    }
-
     public void Dispose()
     {
         _inferenceService?.Dispose();
+        _phaseClassifier?.Dispose();
         GC.SuppressFinalize(this);
     }
 }
