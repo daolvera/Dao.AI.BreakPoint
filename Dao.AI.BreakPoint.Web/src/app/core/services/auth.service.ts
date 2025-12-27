@@ -30,6 +30,15 @@ export class AuthService {
     return this.http.post('api/Auth/Complete', completeProfileRequest);
   }
 
+  public updateUserInfoFromComplete() {
+    this.userInfo.update((user) => {
+      if (!user) {
+        return null;
+      }
+      return { ...user, isProfileComplete: true };
+    });
+  }
+
   public logout() {
     this.http.delete('api/Auth/logout').subscribe(() => {
       this.userInfo.set(null);

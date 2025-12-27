@@ -87,6 +87,7 @@ export class CompleteProfileComponent {
         next: () => {
           this.isSubmitting.set(false);
           this.toastService.success('Profile completed successfully!');
+          this.authService.updateUserInfoFromComplete();
           this.router.navigate(['/dashboard']);
         },
         error: (err) => {
