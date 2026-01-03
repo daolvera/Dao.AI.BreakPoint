@@ -15,17 +15,24 @@ public class SwingPhaseClassifierService : IDisposable
     private readonly InferenceSession _session;
     private bool _disposed;
 
-    // Feature dimensions (must match training)
-    private const int KeypointFeatures = 17 * 3; // 17 joints × (x, y, confidence) = 51
+    // Feature dimensions (must match training - using pose-relative features)
     private const int AngleFeatures = 8;
-    private const int VelocityFeatures = 12;
-    private const int AccelerationFeatures = 12;
+    private const int RelativePositionFeatures = 12; // 6 key joints × 2 (relative x, y)
+    private const int VelocityFeatures = 6;
+    private const int ArmConfigFeatures = 4;
     private const int FeaturesPerFrame =
-        KeypointFeatures + AngleFeatures + VelocityFeatures + AccelerationFeatures; // 83
-    private const int TotalFeatures = (FeaturesPerFrame * 3) + 1; // 3 frames + handedness = 250
+        AngleFeatures + RelativePositionFeatures + VelocityFeatures + ArmConfigFeatures; // 30
+    private const int TotalFeatures = (FeaturesPerFrame * 3) + 1; // 3 frames + handedness = 91
 
-    // Velocity joints: shoulders(5,6), elbows(7,8), wrists(9,10), hips(11,12), knees(13,14), ankles(15,16)
-    private static readonly int[] VelocityJoints = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
+    // Key joint indices
+    private const int LeftShoulder = 5;
+    private const int RightShoulder = 6;
+    private const int LeftElbow = 7;
+    private const int RightElbow = 8;
+    private const int LeftWrist = 9;
+    private const int RightWrist = 10;
+    private const int LeftHip = 11;
+    private const int RightHip = 12;
 
     /// <summary>
     /// Creates a new SwingPhaseClassifierService.
@@ -70,39 +77,37 @@ public class SwingPhaseClassifierService : IDisposable
         var features = ExtractFeatures(keypoints, angles, isRightHanded, prevFrame, prev2Frame);
         var inputTensor = CreateInputTensor(features);
 
+        // ML.NET exported ONNX requires both Features and Label inputs
+        // Shape must be [1, 1] (batch_size, 1)
+        var labelTensor = new DenseTensor<uint>(new uint[] { 0 }, [1, 1]);
+
         var inputs = new List<NamedOnnxValue>
         {
-            NamedOnnxValue.CreateFromTensor("input_1", inputTensor),
+            NamedOnnxValue.CreateFromTensor("Features", inputTensor),
+            NamedOnnxValue.CreateFromTensor("Label", labelTensor),
         };
 
         using var results = _session.Run(inputs);
-        var outputTensor = results.First().AsTensor<float>();
 
-        // Get probabilities for each class
-        float[] probabilities = outputTensor.ToArray();
+        var predictedLabelOutput = results.FirstOrDefault(r => r.Name == "PredictedLabel.output");
+        uint predictedLabel = predictedLabelOutput?.AsTensor<uint>()[0] ?? 0;
 
-        // Find class with highest probability
-        int predictedClass = 0;
-        float maxProb = probabilities[0];
-        for (int i = 1; i < probabilities.Length; i++)
-        {
-            if (probabilities[i] > maxProb)
-            {
-                maxProb = probabilities[i];
-                predictedClass = i;
-            }
-        }
+        var scoreOutput = results.FirstOrDefault(r => r.Name == "Score.output");
+        float[] probabilities = scoreOutput?.AsTensor<float>().ToArray() ?? [];
+
+        float confidence = probabilities.Max();
 
         return new SwingPhaseClassificationResult
         {
-            Phase = IndexToPhase(predictedClass),
-            Confidence = maxProb,
+            Phase = IndexToPhase((int)predictedLabel),
+            Confidence = confidence,
             Probabilities = probabilities,
         };
     }
 
     /// <summary>
     /// Extract features from frame data for model input.
+    /// Uses pose-relative features (positions relative to torso) for better generalization.
     /// </summary>
     private static float[] ExtractFeatures(
         JointData[] keypoints,
@@ -115,12 +120,17 @@ public class SwingPhaseClassifierService : IDisposable
         var features = new List<float>();
 
         // Current frame features
-        AddFrameFeatures(features, keypoints, angles);
+        AddFrameFeatures(features, keypoints, angles, isRightHanded);
 
         // Previous frame features (or zeros if not available)
         if (prevFrame != null)
         {
-            AddFrameFeatures(features, prevFrame.Joints, GetAnglesFromFrameData(prevFrame));
+            AddFrameFeatures(
+                features,
+                prevFrame.Joints,
+                GetAnglesFromFrameData(prevFrame),
+                isRightHanded
+            );
         }
         else
         {
@@ -130,7 +140,12 @@ public class SwingPhaseClassifierService : IDisposable
         // Previous-previous frame features (or zeros if not available)
         if (prev2Frame != null)
         {
-            AddFrameFeatures(features, prev2Frame.Joints, GetAnglesFromFrameData(prev2Frame));
+            AddFrameFeatures(
+                features,
+                prev2Frame.Joints,
+                GetAnglesFromFrameData(prev2Frame),
+                isRightHanded
+            );
         }
         else
         {
@@ -146,34 +161,73 @@ public class SwingPhaseClassifierService : IDisposable
     private static void AddFrameFeatures(
         List<float> features,
         JointData[] keypoints,
-        float[] angles
+        float[] angles,
+        bool isRightHanded
     )
     {
-        // Keypoint features: x, y, confidence for all 17 joints (51 features)
-        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
-        {
-            features.Add(keypoints[i].X);
-            features.Add(keypoints[i].Y);
-            features.Add(keypoints[i].Confidence);
-        }
-
-        // Joint angles (8 features), normalized
+        // 1. Joint angles (8 features) - these are pose-invariant
         foreach (var angle in angles)
         {
-            features.Add(angle / 180.0f);
+            features.Add(Sanitize(angle / 180.0f));
         }
 
-        // Velocities for key joints (12 features), normalized
-        foreach (var jointIdx in VelocityJoints)
+        // Calculate hip center as reference point
+        var hipCenterX = (keypoints[LeftHip].X + keypoints[RightHip].X) / 2;
+        var hipCenterY = (keypoints[LeftHip].Y + keypoints[RightHip].Y) / 2;
+
+        // Calculate torso scale (for normalization)
+        var shoulderCenterY = (keypoints[LeftShoulder].Y + keypoints[RightShoulder].Y) / 2;
+        var torsoHeight = Math.Max(0.1f, Math.Abs(hipCenterY - shoulderCenterY));
+
+        // 2. Relative positions of key joints (12 features)
+        int[] relativeJoints =
+        [
+            LeftWrist,
+            RightWrist,
+            LeftElbow,
+            RightElbow,
+            LeftShoulder,
+            RightShoulder,
+        ];
+        foreach (var jointIdx in relativeJoints)
         {
-            features.Add((keypoints[jointIdx].Speed ?? 0) / 1000.0f);
+            var relX = (keypoints[jointIdx].X - hipCenterX) / torsoHeight;
+            var relY = (keypoints[jointIdx].Y - hipCenterY) / torsoHeight;
+            features.Add(Sanitize(relX));
+            features.Add(Sanitize(relY));
         }
 
-        // Accelerations for same joints (12 features), normalized
-        foreach (var jointIdx in VelocityJoints)
+        // 3. Key velocities (6 features)
+        int[] velocityJoints =
+        [
+            LeftWrist,
+            RightWrist,
+            LeftElbow,
+            RightElbow,
+            LeftShoulder,
+            RightShoulder,
+        ];
+        foreach (var jointIdx in velocityJoints)
         {
-            features.Add((keypoints[jointIdx].Acceleration ?? 0) / 10000.0f);
+            var speed = keypoints[jointIdx].Speed ?? 0;
+            features.Add(Sanitize(speed / 500.0f));
         }
+
+        // 4. Arm configuration features (4 features)
+        int dominantWrist = isRightHanded ? RightWrist : LeftWrist;
+        int dominantElbow = isRightHanded ? RightElbow : LeftElbow;
+        int dominantShoulder = isRightHanded ? RightShoulder : LeftShoulder;
+
+        var wristToShoulderX = keypoints[dominantWrist].X - keypoints[dominantShoulder].X;
+        var wristToShoulderY = keypoints[dominantWrist].Y - keypoints[dominantShoulder].Y;
+        features.Add(Sanitize(wristToShoulderX / torsoHeight));
+        features.Add(Sanitize(wristToShoulderY / torsoHeight));
+
+        var elbowToHipX = keypoints[dominantElbow].X - hipCenterX;
+        features.Add(Sanitize(elbowToHipX / torsoHeight));
+
+        var wristHeightDiff = keypoints[dominantWrist].Y - keypoints[dominantShoulder].Y;
+        features.Add(Sanitize(wristHeightDiff / torsoHeight));
     }
 
     private static void AddZeroFrameFeatures(List<float> features)
@@ -182,6 +236,13 @@ public class SwingPhaseClassifierService : IDisposable
         {
             features.Add(0.0f);
         }
+    }
+
+    private static float Sanitize(float value)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value))
+            return 0f;
+        return Math.Clamp(value, -10f, 10f);
     }
 
     private static float[] GetAnglesFromFrameData(FrameData frame)
@@ -204,7 +265,8 @@ public class SwingPhaseClassifierService : IDisposable
         var tensor = new DenseTensor<float>([1, features.Length]);
         for (int i = 0; i < features.Length; i++)
         {
-            tensor[0, i] = float.IsNaN(features[i]) ? 0f : features[i];
+            var val = features[i];
+            tensor[0, i] = (float.IsNaN(val) || float.IsInfinity(val)) ? 0f : val;
         }
         return tensor;
     }

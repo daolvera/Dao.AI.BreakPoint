@@ -19,7 +19,9 @@ public class SwingAnalyzerService(
 ) : ISwingAnalyzerService
 {
     private const int SequenceLength = 90;
-    private const int NumFeatures = 66;
+
+    // Use focused feature count for improved model performance
+    private const int NumFeatures = SwingPreprocessingService.FocusedFeatureCount;
 
     public async Task AnalyzeSwingAsync(Stream videoStream, AnalysisRequest analysisRequest)
     {

@@ -1,0 +1,65 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches: [main]
+
+env:
+  AZURE_CONTAINER_REGISTRY: ${{ secrets.ACR_LOGIN_SERVER }}
+  API_IMAGE_NAME: breakpoint-api
+  FUNCTION_IMAGE_NAME: breakpoint-analyzer
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+  push-images:
+    name: Push Container Images
+    runs-on: ubuntu-latest
+    needs: build-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login to Azure Container Registry
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push API Service image
+        run: |
+          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }} \
+                       -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest \
+                       -f Dao.AI.BreakPoint.ApiService/Dockerfile .
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.API_IMAGE_NAME }}:latest
+
+      - name: Build and push Analyzer Function image
+        run: |
+          docker build -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.FUNCTION_IMAGE_NAME }}:${{ github.sha }} \
+                       -t ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.FUNCTION_IMAGE_NAME }}:latest \
+                       -f Dao.AI.BreakPoint.AnalyzerFunction/Dockerfile .
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.FUNCTION_IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.AZURE_CONTAINER_REGISTRY }}/${{ env.FUNCTION_IMAGE_NAME }}:latest

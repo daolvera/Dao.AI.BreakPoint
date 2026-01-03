@@ -1,4 +1,5 @@
-﻿using Dao.AI.BreakPoint.Services.Options;
+﻿using Azure.Storage.Blobs;
+using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Microsoft.Extensions.DependencyInjection;
@@ -65,6 +66,21 @@ public static class ServiceCollectionExtensions
 
         services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
 
+        return services;
+    }
+
+    /// <summary>
+    /// Registers blob storage service using the Aspire-injected BlobServiceClient.
+    /// Use this when running with .NET Aspire orchestration.
+    /// </summary>
+    public static IServiceCollection AddAspirerBlobStorage(this IServiceCollection services)
+    {
+        services.Configure<BlobStorageOptions>(_ => { });
+        services.AddScoped<IBlobStorageService>(sp =>
+        {
+            var blobServiceClient = sp.GetRequiredService<BlobServiceClient>();
+            return new AzureBlobStorageService(blobServiceClient);
+        });
         return services;
     }
 

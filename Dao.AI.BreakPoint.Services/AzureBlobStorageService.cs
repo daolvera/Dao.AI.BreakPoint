@@ -15,18 +15,46 @@ public class AzureBlobStorageService : IBlobStorageService
     private readonly BlobServiceClient _blobServiceClient;
     private readonly BlobContainerClient _videoContainerClient;
     private readonly BlobContainerClient _imageContainerClient;
-    private readonly BlobStorageOptions _options;
+    private readonly bool _usesDevelopmentStorage;
 
+    /// <summary>
+    /// Creates a new AzureBlobStorageService using the provided options.
+    /// Used for direct configuration (non-Aspire scenarios).
+    /// </summary>
     public AzureBlobStorageService(IOptions<BlobStorageOptions> options)
     {
-        _options = options.Value;
-        _blobServiceClient = new BlobServiceClient(_options.ConnectionString);
+        var storageOptions = options.Value;
+        _blobServiceClient = new BlobServiceClient(storageOptions.ConnectionString);
         _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
-            _options.VideoContainerName
+            storageOptions.VideoContainerName
         );
         _imageContainerClient = _blobServiceClient.GetBlobContainerClient(
-            _options.ImageContainerName
+            storageOptions.ImageContainerName
         );
+        _usesDevelopmentStorage =
+            storageOptions.ConnectionString?.Contains(
+                "UseDevelopmentStorage=true",
+                StringComparison.OrdinalIgnoreCase
+            ) ?? false;
+    }
+
+    /// <summary>
+    /// Creates a new AzureBlobStorageService using the Aspire-injected BlobServiceClient.
+    /// Used when running with .NET Aspire orchestration.
+    /// </summary>
+    public AzureBlobStorageService(BlobServiceClient blobServiceClient)
+    {
+        _blobServiceClient = blobServiceClient;
+        _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
+            BlobStorageOptions.DefaultVideoContainerName
+        );
+        _imageContainerClient = _blobServiceClient.GetBlobContainerClient(
+            BlobStorageOptions.DefaultImageContainerName
+        );
+        // Aspire uses Azurite for local development
+        _usesDevelopmentStorage =
+            _blobServiceClient.Uri.Host.Contains("127.0.0.1")
+            || _blobServiceClient.Uri.Host.Contains("localhost");
     }
 
     public async Task<string> UploadVideoAsync(Stream stream, string fileName, string contentType)
@@ -72,12 +100,7 @@ public class AzureBlobStorageService : IBlobStorageService
 
         // Check if the connection is using development storage (Azurite)
         // Azurite doesn't require SAS tokens for local development
-        if (
-            _options.ConnectionString.Contains(
-                "UseDevelopmentStorage=true",
-                StringComparison.OrdinalIgnoreCase
-            )
-        )
+        if (_usesDevelopmentStorage)
         {
             return Task.FromResult(blobUrl);
         }

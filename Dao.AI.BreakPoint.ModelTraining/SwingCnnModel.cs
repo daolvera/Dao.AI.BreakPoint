@@ -1,21 +1,18 @@
-using Tensorflow.Keras.Engine;
-using static Tensorflow.KerasApi;
+using Microsoft.ML.Data;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
 /// <summary>
-/// CNN model for swing quality analysis with attention-like mechanisms.
-/// Outputs quality score plus feature importance weights for interpretability.
+/// ML.NET data classes and constants for swing quality analysis.
+/// Uses regression to predict quality scores from pose sequences.
 ///
-/// Note: TensorFlow.NET has limited layer support compared to Python TensorFlow.
-/// This implementation uses a simplified attention mechanism that still provides
-/// interpretable feature importance through learned dense weights.
+/// Note: ML.NET doesn't support custom CNN architectures like TensorFlow,
+/// but provides powerful regression trainers that work well for this task.
+/// The model learns from aggregated sequence features to predict quality.
 /// </summary>
 public static class SwingCnnModel
 {
-    // Joint groups for attention - indices into the 66 features
-    // Features are: 12 joints * 2 (velocity + accel) + 8 angles + 17 joints * 2 (x,y)
-    // These constants help interpret attention weights
+    // Feature indices for interpretability
     public const int NumJoints = 12;
     public const int VelocityFeaturesStart = 0;
     public const int AccelerationFeaturesStart = 12;
@@ -23,92 +20,51 @@ public static class SwingCnnModel
     public const int PositionFeaturesStart = 32;
 
     /// <summary>
-    /// Build 1D CNN model with attention-like feature importance for swing analysis.
-    ///
-    /// Architecture:
-    /// - CNN backbone extracts spatial-temporal features
-    /// - Global pooling provides frame-level aggregation
-    /// - Dense layers with interpretable weights for feature importance
-    /// - Output: quality score (0-100)
-    ///
-    /// Feature importance can be extracted post-training by analyzing gradient flow
-    /// or by examining the learned weights of the first dense layer.
+    /// Number of features per frame in the sequence
     /// </summary>
-    /// <param name="sequenceLength">Number of frames in sequence (e.g., 90)</param>
-    /// <param name="numFeatures">Number of features per frame (e.g., 66)</param>
-    /// <returns>Model that outputs quality score</returns>
-    public static IModel BuildModelWithAttention(int sequenceLength, int numFeatures)
-    {
-        var input = keras.Input(shape: (sequenceLength, numFeatures));
-
-        // === CNN Feature Extraction Backbone ===
-        // Extracts hierarchical features from pose sequences
-
-        // First conv block - local patterns (3-frame window)
-        var conv1 = keras.layers.Conv1D(64, 3, activation: "relu", padding: "same").Apply(input);
-        var bn1 = keras.layers.BatchNormalization().Apply(conv1);
-        var pool1 = keras.layers.MaxPooling1D(2).Apply(bn1);
-        var dropout1 = keras.layers.Dropout(0.2f).Apply(pool1);
-
-        // Second conv block - medium patterns (5-frame window)
-        var conv2 = keras
-            .layers.Conv1D(128, 5, activation: "relu", padding: "same")
-            .Apply(dropout1);
-        var bn2 = keras.layers.BatchNormalization().Apply(conv2);
-        var pool2 = keras.layers.MaxPooling1D(2).Apply(bn2);
-        var dropout2 = keras.layers.Dropout(0.2f).Apply(pool2);
-
-        // Third conv block - wider patterns (7-frame window)
-        var conv3 = keras
-            .layers.Conv1D(256, 7, activation: "relu", padding: "same")
-            .Apply(dropout2);
-        var bn3 = keras.layers.BatchNormalization().Apply(conv3);
-        var dropout3 = keras.layers.Dropout(0.3f).Apply(bn3);
-
-        // === Temporal Aggregation ===
-        // Global pooling aggregates across time, giving implicit temporal attention
-        // Frames with stronger features naturally contribute more
-        var globalPool = keras.layers.GlobalAveragePooling1D().Apply(dropout3);
-
-        // === Feature Importance Layer ===
-        // This dense layer learns which CNN features matter most
-        // The weights can be analyzed post-training for interpretability
-        var featureImportance = keras.layers.Dense(128, activation: "relu").Apply(globalPool);
-        var dropoutFI = keras.layers.Dropout(0.4f).Apply(featureImportance);
-
-        // Second importance layer for finer-grained feature selection
-        var dense2 = keras.layers.Dense(64, activation: "relu").Apply(dropoutFI);
-        var dropout4 = keras.layers.Dropout(0.3f).Apply(dense2);
-
-        // === Output: Quality Score ===
-        // Single output scaled to 0-100 range via sigmoid * 100 post-processing
-        var qualityOutput = keras.layers.Dense(1, activation: "sigmoid").Apply(dropout4);
-
-        var model = keras.Model(inputs: input, outputs: qualityOutput);
-        return model;
-    }
-
-    private static readonly string[] metrics = ["mae"];
+    public const int FeaturesPerFrame = 66;
 
     /// <summary>
-    /// Compile model with appropriate loss functions and metrics
+    /// Number of output scores (overall + 5 sub-components)
     /// </summary>
-    public static void CompileModel(IModel model, float learningRate = 0.001f)
-    {
-        var optimizer = keras.optimizers.Adam(learning_rate: learningRate);
+    public const int NumOutputs = 6;
+}
 
-        model.compile(
-            optimizer: optimizer,
-            loss: keras.losses.MeanSquaredError(),
-            metrics: metrics
-        );
-    }
+/// <summary>
+/// ML.NET input data class for swing quality regression.
+/// Features are aggregated statistics from the swing sequence.
+/// </summary>
+public class SwingQualityInput
+{
+    /// <summary>
+    /// Aggregated feature vector from the swing sequence.
+    /// Contains statistics (mean, std, range) for each feature
+    /// across the temporal dimension.
+    /// 16 features × 3 statistics = 48 total
+    /// </summary>
+    [VectorType(48)] // 16 features × 3 statistics = 48
+    public float[] Features { get; set; } = [];
+
+    /// <summary>
+    /// Target quality score (0-100)
+    /// </summary>
+    public float QualityScore { get; set; }
+}
+
+/// <summary>
+/// ML.NET output prediction class for quality score
+/// </summary>
+public class SwingQualityPrediction
+{
+    /// <summary>
+    /// Predicted quality score
+    /// </summary>
+    public float Score { get; set; }
 }
 
 /// <summary>
 /// Helper class to interpret feature importance after inference.
-/// Since TensorFlow.NET doesn't support extracting attention weights directly,
-/// we use gradient-based methods or analyze learned weights for interpretability.
+/// Maps feature indices to human-readable names.
 /// </summary>
 public static class AttentionInterpreter
 {

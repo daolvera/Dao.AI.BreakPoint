@@ -63,7 +63,8 @@ public class OpenCvVideoProcessingService : IVideoProcessingService
             Height = (int)capture.Get(VideoCaptureProperties.FrameHeight),
             FrameRate = (int)capture.Get(VideoCaptureProperties.Fps),
             TotalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount),
-            DurationSeconds = capture.Get(VideoCaptureProperties.FrameCount) / capture.Get(VideoCaptureProperties.Fps)
+            DurationSeconds = capture.Get(VideoCaptureProperties.FrameCount) / capture.Get(VideoCaptureProperties.Fps),
+            FileName = videoPath.Split(Path.DirectorySeparatorChar).Last()
         };
 
         return metadata;

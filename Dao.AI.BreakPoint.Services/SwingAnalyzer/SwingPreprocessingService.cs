@@ -2,12 +2,39 @@ using Dao.AI.BreakPoint.Services.MoveNet;
 
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
+/// <summary>
+/// Service for preprocessing swing data into feature vectors for ML model input.
+/// Uses a focused feature set optimized for tennis swing quality analysis.
+/// </summary>
 public static class SwingPreprocessingService
 {
-    public static async Task<float[,]> PreprocessSwingAsync(
+    /// <summary>
+    /// Number of features per frame for the focused feature set.
+    /// 6 key joints (wrist, elbow, shoulder) × 2 sides × 2 (velocity + acceleration) = 12 motion features
+    /// + 4 key angles (elbow, shoulder) = 16 total features per frame
+    /// Note: The full 28 features includes additional derived features in aggregation.
+    /// </summary>
+    public const int FocusedFeatureCount = 16;
+
+    /// <summary>
+    /// Key joints for tennis swing analysis (most relevant for technique quality).
+    /// Order: Left/Right pairs for Shoulder, Elbow, Wrist
+    /// </summary>
+    private static readonly JointFeatures[] KeyJoints =
+    [
+        JointFeatures.LeftShoulder,
+        JointFeatures.RightShoulder,
+        JointFeatures.LeftElbow,
+        JointFeatures.RightElbow,
+        JointFeatures.LeftWrist,
+        JointFeatures.RightWrist,
+    ];
+
+    public static Task<float[,]> PreprocessSwingAsync(
         SwingData swing,
         int sequenceLength,
-        int numFeatures)
+        int numFeatures
+    )
     {
         var frameFeatures = new List<float[]>();
 
@@ -28,51 +55,49 @@ public static class SwingPreprocessingService
             throw new InvalidOperationException("No valid frame features extracted from swing");
         }
 
-        return PadSequence(frameFeatures, sequenceLength, numFeatures);
+        return Task.FromResult(PadSequence(frameFeatures, sequenceLength, numFeatures));
     }
 
+    /// <summary>
+    /// Build focused feature set optimized for tennis swing analysis.
+    /// Total: 16 features per frame
+    /// - 12 motion features (6 joints × 2 velocity/acceleration)
+    /// - 4 key angles (elbow and shoulder, both sides)
+    /// </summary>
     private static float[] BuildFeaturesFromFrame(FrameData frame)
     {
         List<float> features = [];
 
-        var trackedJoints = new[]
-        {
-            JointFeatures.LeftShoulder, JointFeatures.RightShoulder,
-            JointFeatures.LeftElbow, JointFeatures.RightElbow,
-            JointFeatures.LeftWrist, JointFeatures.RightWrist,
-            JointFeatures.LeftHip, JointFeatures.RightHip,
-            JointFeatures.LeftKnee, JointFeatures.RightKnee,
-            JointFeatures.LeftAnkle, JointFeatures.RightAnkle
-        };
-
-        foreach (var joint in trackedJoints)
+        // Motion features for key joints (velocity and acceleration)
+        // These are the most important for swing quality
+        foreach (var joint in KeyJoints)
         {
             int idx = (int)joint;
-            features.Add(frame.Joints[idx].Speed ?? float.NaN);
-            features.Add(frame.Joints[idx].Acceleration ?? float.NaN);
+            var jointData = frame.Joints[idx];
+
+            // Use 0 for low-confidence joints instead of NaN to avoid training issues
+            float velocity = jointData.Confidence >= 0.2f ? (jointData.Speed ?? 0f) : 0f;
+            float acceleration = jointData.Confidence >= 0.2f ? (jointData.Acceleration ?? 0f) : 0f;
+
+            features.Add(velocity);
+            features.Add(acceleration);
         }
 
+        // Key angles for technique assessment
+        // Elbow and shoulder angles are most relevant for tennis strokes
         features.Add(frame.LeftElbowAngle);
         features.Add(frame.RightElbowAngle);
         features.Add(frame.LeftShoulderAngle);
         features.Add(frame.RightShoulderAngle);
-        features.Add(frame.LeftHipAngle);
-        features.Add(frame.RightHipAngle);
-        features.Add(frame.LeftKneeAngle);
-        features.Add(frame.RightKneeAngle);
 
-        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
-        {
-            float x = frame.Joints[i].Confidence < 0.2f ? float.NaN : frame.Joints[i].X;
-            float y = frame.Joints[i].Confidence < 0.2f ? float.NaN : frame.Joints[i].Y;
-            features.Add(x);
-            features.Add(y);
-        }
-
-        return features.ToArray();
+        return [.. features];
     }
 
-    private static float[,] PadSequence(List<float[]> frameFeatures, int sequenceLength, int numFeatures)
+    private static float[,] PadSequence(
+        List<float[]> frameFeatures,
+        int sequenceLength,
+        int numFeatures
+    )
     {
         var paddedSequence = new float[sequenceLength, numFeatures];
         var actualLength = Math.Min(frameFeatures.Count, sequenceLength);

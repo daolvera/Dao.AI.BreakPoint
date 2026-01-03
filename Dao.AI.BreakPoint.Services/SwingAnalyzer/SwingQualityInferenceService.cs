@@ -4,8 +4,9 @@ using Microsoft.ML.OnnxRuntime.Tensors;
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
 /// <summary>
-/// Inference service for the trained swing quality CNN model.
+/// Inference service for the trained swing quality model.
 /// Provides quality score prediction and gradient-based feature importance extraction.
+/// Uses the focused 28-feature model optimized for tennis swing analysis.
 /// </summary>
 public class SwingQualityInferenceService : IDisposable
 {
@@ -17,33 +18,37 @@ public class SwingQualityInferenceService : IDisposable
     // Epsilon for finite difference gradient computation
     private const float GradientEpsilon = 0.01f;
 
-    // Key feature indices for efficient gradient computation
-    // Only compute gradients for features that matter in tennis
+    /// <summary>
+    /// Feature indices for the focused 28-feature model.
+    /// Structure: 6 joints × 2 (velocity/accel) = 12 motion features, then 4 angles
+    /// Layout per frame:
+    ///   0-1: Left Shoulder (velocity, acceleration)
+    ///   2-3: Right Shoulder (velocity, acceleration)
+    ///   4-5: Left Elbow (velocity, acceleration)
+    ///   6-7: Right Elbow (velocity, acceleration)
+    ///   8-9: Left Wrist (velocity, acceleration)
+    ///  10-11: Right Wrist (velocity, acceleration)
+    ///  12-15: Angles (left elbow, right elbow, left shoulder, right shoulder)
+    /// </summary>
     private static readonly int[] KeyFeatureIndices =
     [
-        // Velocities (indices 0-11): wrists, elbows, shoulders most important
-        4,
-        5, // Left/Right Wrist Velocity
-        2,
-        3, // Left/Right Elbow Velocity
+        // All 16 key features for coaching tip generation
         0,
-        1, // Left/Right Shoulder Velocity
+        1, // Left Shoulder Velocity/Acceleration
+        2,
+        3, // Right Shoulder Velocity/Acceleration
+        4,
+        5, // Left Elbow Velocity/Acceleration
         6,
-        7, // Left/Right Hip Velocity
-        // Accelerations (indices 12-23)
-        16,
-        17, // Left/Right Wrist Acceleration
+        7, // Right Elbow Velocity/Acceleration
+        8,
+        9, // Left Wrist Velocity/Acceleration
+        10,
+        11, // Right Wrist Velocity/Acceleration
+        12,
+        13, // Left/Right Elbow Angle
         14,
-        15, // Left/Right Elbow Acceleration
-        // Angles (indices 24-31)
-        24,
-        25, // Left/Right Elbow Angle
-        26,
-        27, // Left/Right Shoulder Angle
-        28,
-        29, // Left/Right Hip Angle
-        30,
-        31, // Left/Right Knee Angle
+        15, // Left/Right Shoulder Angle
     ];
 
     /// <summary>
@@ -53,7 +58,7 @@ public class SwingQualityInferenceService : IDisposable
     public SwingQualityInferenceService(
         string? modelPath,
         int sequenceLength = 90,
-        int numFeatures = 66
+        int numFeatures = SwingPreprocessingService.FocusedFeatureCount
     )
     {
         _sequenceLength = sequenceLength;
@@ -148,7 +153,7 @@ public class SwingQualityInferenceService : IDisposable
         var gradients = new Dictionary<int, float>();
         int sequenceLength = preprocessedSwing.GetLength(0);
 
-        // Compute gradients only for key features (performance optimization)
+        // Compute gradients for all key features used in coaching tips
         foreach (int featureIdx in KeyFeatureIndices)
         {
             if (featureIdx >= _numFeatures)
@@ -170,8 +175,8 @@ public class SwingQualityInferenceService : IDisposable
                 var perturbed = CloneSwingData(preprocessedSwing);
                 float originalValue = perturbed[frameIdx, featureIdx];
 
-                // Skip if NaN
-                if (float.IsNaN(originalValue))
+                // Skip if NaN or Infinity
+                if (float.IsNaN(originalValue) || float.IsInfinity(originalValue))
                     continue;
 
                 // Perturb the feature
@@ -287,8 +292,8 @@ public class SwingQualityInferenceService : IDisposable
             }
         }
 
-        // Map to feature names
-        for (int i = 0; i < Math.Min(featureVariances.Length, 66); i++)
+        // Map to feature names (16 key features for coaching)
+        for (int i = 0; i < Math.Min(featureVariances.Length, KeyFeatureIndices.Length); i++)
         {
             string featureName = GetFeatureName(i);
             importance[featureName] = Math.Round(featureVariances[i], 4);
@@ -350,7 +355,7 @@ public class SwingQualityInferenceService : IDisposable
             for (int f = 0; f < Math.Min(actualNumFeatures, _numFeatures); f++)
             {
                 float val = preprocessedSwing[t, f];
-                tensor[0, t, f] = float.IsNaN(val) ? 0f : val;
+                tensor[0, t, f] = (float.IsNaN(val) || float.IsInfinity(val)) ? 0f : val;
             }
         }
 
@@ -358,7 +363,8 @@ public class SwingQualityInferenceService : IDisposable
     }
 
     /// <summary>
-    /// Get human-readable name for a feature index
+    /// Get human-readable name for a feature index.
+    /// Maps to the focused 28-feature layout used for tennis swing analysis.
     /// </summary>
     private static string GetFeatureName(int index)
     {
@@ -370,12 +376,6 @@ public class SwingQualityInferenceService : IDisposable
             "Right Elbow",
             "Left Wrist",
             "Right Wrist",
-            "Left Hip",
-            "Right Hip",
-            "Left Knee",
-            "Right Knee",
-            "Left Ankle",
-            "Right Ankle",
         ];
 
         string[] angleNames =
@@ -384,56 +384,27 @@ public class SwingQualityInferenceService : IDisposable
             "Right Elbow Angle",
             "Left Shoulder Angle",
             "Right Shoulder Angle",
-            "Left Hip Angle",
-            "Right Hip Angle",
-            "Left Knee Angle",
-            "Right Knee Angle",
         ];
 
-        // Velocity features: 0-11 (12 joints)
+        // Motion features: 0-11 (6 joints × 2 for velocity + acceleration interleaved)
         if (index < 12)
         {
-            return $"{jointNames[index]} Velocity";
+            int jointIdx = index / 2;
+            string metric = index % 2 == 0 ? "Velocity" : "Acceleration";
+            if (jointIdx < jointNames.Length)
+            {
+                return $"{jointNames[jointIdx]} {metric}";
+            }
         }
-        // Acceleration features: 12-23
-        if (index < 24)
-        {
-            return $"{jointNames[index - 12]} Acceleration";
-        }
-        // Angle features: 24-31
-        if (index < 32)
-        {
-            return angleNames[index - 24];
-        }
-        // Position features: 32-65 (17 joints x 2 coords)
-        int posIndex = index - 32;
-        int jointIndex = posIndex / 2;
-        string coord = posIndex % 2 == 0 ? "X" : "Y";
 
-        string[] allJointNames =
-        [
-            "Nose",
-            "Left Eye",
-            "Right Eye",
-            "Left Ear",
-            "Right Ear",
-            "Left Shoulder",
-            "Right Shoulder",
-            "Left Elbow",
-            "Right Elbow",
-            "Left Wrist",
-            "Right Wrist",
-            "Left Hip",
-            "Right Hip",
-            "Left Knee",
-            "Right Knee",
-            "Left Ankle",
-            "Right Ankle",
-        ];
-
-        if (jointIndex < allJointNames.Length)
+        // Angle features: 12-15
+        if (index < 16)
         {
-            return $"{allJointNames[jointIndex]} Position {coord}";
+            int angleIdx = index - 12;
+            if (angleIdx < angleNames.Length)
+            {
+                return angleNames[angleIdx];
+            }
         }
 
         return $"Feature {index}";

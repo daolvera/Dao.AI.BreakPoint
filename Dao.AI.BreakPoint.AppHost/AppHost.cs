@@ -1,20 +1,41 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-var postgres = builder.AddPostgres("postgres")
-    .WithLifetime(ContainerLifetime.Persistent);
+// Database
+var postgres = builder.AddPostgres("postgres").WithLifetime(ContainerLifetime.Persistent);
 
-var breakPointDb = postgres.AddDatabase("BreakPointDb");
+var breakPointDb = postgres.AddDatabase("breakpointdb");
 
-var migrations = builder.AddProject<Projects.Dao_AI_BreakPoint_Migrations>("BreakPointMigrations")
+// Azure Storage (Azurite for local dev)
+var storage = builder
+    .AddAzureStorage("storage")
+    .RunAsEmulator(emulator => emulator.WithLifetime(ContainerLifetime.Persistent));
+
+var blobStorage = storage.AddBlobs("blobstorage");
+
+// Migrations
+var migrations = builder
+    .AddProject<Projects.Dao_AI_BreakPoint_Migrations>("breakpointmigrations")
     .WithReference(breakPointDb)
     .WaitFor(breakPointDb);
 
-var breakPointApi = builder.AddProject<Projects.Dao_AI_BreakPoint_ApiService>("BreakPointApi")
+// API Service
+var breakPointApi = builder
+    .AddProject<Projects.Dao_AI_BreakPoint_ApiService>("breakpointapi")
     .WaitFor(migrations)
     .WithReference(breakPointDb)
+    .WithReference(blobStorage)
     .WithHttpHealthCheck("/health");
 
-var breakPointApp = builder.AddJavaScriptApp("BreakPoint", "../Dao.AI.BreakPoint.Web", "start")
+// Azure Function (Swing Analyzer)
+var analyzerFunction = builder
+    .AddAzureFunctionsProject<Projects.Dao_AI_BreakPoint_AnalyzerFunction>("breakpointanalyzerfunction")
+    .WithHostStorage(storage)
+    .WithReference(breakPointDb)
+    .WithReference(blobStorage);
+
+// Frontend App
+var breakPointApp = builder
+    .AddJavaScriptApp("breakpoint", "../Dao.AI.BreakPoint.Web", "start")
     .WithReference(breakPointApi)
     .WaitFor(breakPointApi)
     .WithHttpEndpoint(port: 3000, env: "PORT")

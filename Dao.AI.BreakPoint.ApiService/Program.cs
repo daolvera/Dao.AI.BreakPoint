@@ -35,7 +35,10 @@ builder.Services.AddControllers();
 builder.Services.AddBreakPointServices();
 builder.Services.AddBreakPointIdentityServices();
 builder.Services.AddAnalysisServices();
-builder.Services.AddBlobStorage();
+
+// Configure Azure Blob Storage using Aspire extension
+builder.AddAzureBlobServiceClient("BlobStorage");
+builder.Services.AddAspirerBlobStorage();
 
 // Add coaching service - uses Azure OpenAI if configured, otherwise static tips
 var azureOpenAISection = builder.Configuration.GetSection("AzureOpenAI");

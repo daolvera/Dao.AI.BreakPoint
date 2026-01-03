@@ -21,6 +21,16 @@ internal class Program
             await ExtractFramesForLabelingAsync(args);
             return;
         }
+        if (args.Contains("--augment") || args.Contains("-a"))
+        {
+            await AugmentLabeledDataAsync(args);
+            return;
+        }
+        if (args.Contains("--reextract") || args.Contains("-r"))
+        {
+            await ReExtractFeaturesAsync(args);
+            return;
+        }
 
         var options = ParseArguments(args);
 
@@ -101,14 +111,11 @@ internal class Program
 
         try
         {
-            // Train the model
-            var modelPath = await trainingService.TrainTensorFlowModelAsync(
-                processedSwingVideos,
-                options
-            );
+            // Train the model and export to ONNX
+            var modelPath = await trainingService.TrainAsync(processedSwingVideos, options);
 
             Console.WriteLine($"Training completed! Model saved at: {modelPath}");
-            Console.WriteLine($"Trained on {processedSwingVideos.Count} swing examples");
+            Console.WriteLine($"Trained on {processedSwingVideos.Count} videos");
         }
         catch (Exception ex)
         {
@@ -215,6 +222,108 @@ internal class Program
         FrameLabelingHelper.PrintLabelingInstructions();
     }
 
+    /// <summary>
+    /// Re-extract features from existing labeled JSON files using the new feature extractor.
+    /// Preserves labels but recomputes features.
+    /// </summary>
+    private static async Task ReExtractFeaturesAsync(string[] args)
+    {
+        Console.WriteLine("Re-extracting features from labeled data...");
+        var config = ParseAugmentationArguments(args); // Reuse same config
+
+        if (!Directory.Exists(config.LabeledDataDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"Labeled data directory not found: {config.LabeledDataDirectory}"
+            );
+        }
+
+        if (!Directory.Exists(config.VideoDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"Video directory not found: {config.VideoDirectory}"
+            );
+        }
+
+        var helper = new TemporalAugmentationHelper(
+            config.MoveNetModelPath,
+            config.VideoDirectory,
+            config.LabeledDataDirectory
+        );
+
+        await helper.ReExtractFeaturesAsync(config.OutputDirectory);
+        helper.PrintClassDistribution();
+    }
+
+    /// <summary>
+    /// Augment labeled data by extracting adjacent frames with same labels
+    /// </summary>
+    private static async Task AugmentLabeledDataAsync(string[] args)
+    {
+        Console.WriteLine("Augmenting labeled data with adjacent frames...");
+        var config = ParseAugmentationArguments(args);
+
+        if (!Directory.Exists(config.LabeledDataDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"Labeled data directory not found: {config.LabeledDataDirectory}"
+            );
+        }
+
+        if (!Directory.Exists(config.VideoDirectory))
+        {
+            throw new DirectoryNotFoundException(
+                $"Video directory not found: {config.VideoDirectory}"
+            );
+        }
+
+        var helper = new TemporalAugmentationHelper(
+            config.MoveNetModelPath,
+            config.VideoDirectory,
+            config.LabeledDataDirectory
+        );
+
+        await helper.AugmentLabeledDataAsync(config.OffsetFrames, config.OutputDirectory);
+
+        helper.PrintClassDistribution();
+    }
+
+    private static AugmentationConfig ParseAugmentationArguments(string[] args)
+    {
+        var config = new AugmentationConfig();
+        int index = 0;
+
+        foreach (var arg in args)
+        {
+            switch (arg.ToLower())
+            {
+                case "--labeled-data":
+                case "-l":
+                    config.LabeledDataDirectory = GetNextArg(args, index);
+                    break;
+                case "--video-dir":
+                case "-d":
+                    config.VideoDirectory = GetNextArg(args, index);
+                    break;
+                case "--output":
+                case "-o":
+                    config.OutputDirectory = GetNextArg(args, index);
+                    break;
+                case "--movenet":
+                case "-m":
+                    config.MoveNetModelPath = GetNextArg(args, index);
+                    break;
+                case "--offset":
+                case "-n":
+                    config.OffsetFrames = int.Parse(GetNextArg(args, index));
+                    break;
+            }
+            index++;
+        }
+
+        return config;
+    }
+
     private static FrameExtractionConfig ParseFrameExtractionArguments(string[] args)
     {
         var config = new FrameExtractionConfig();
@@ -305,21 +414,9 @@ internal class Program
                 case "-l":
                     config.LabeledFramesDirectory = GetNextArg(args, index);
                     break;
-                case "--movenet":
-                case "-m":
-                    config.InputModelPath = GetNextArg(args, index);
-                    break;
                 case "--output":
                 case "-o":
                     config.ModelOutputPath = GetNextArg(args, index);
-                    break;
-                case "--epochs":
-                case "-e":
-                    config.Epochs = int.Parse(GetNextArg(args, index));
-                    break;
-                case "--batch-size":
-                case "-b":
-                    config.BatchSize = int.Parse(GetNextArg(args, index));
                     break;
             }
             index++;
@@ -407,9 +504,9 @@ internal class Program
             "    --labeled-frames|-l <path>    Path to directory with labeled frame JSON files"
         );
         Console.WriteLine(
-            "    --epochs|-e <num>             Number of training epochs (default: 50)"
+            "    --max-iterations|-i <num>     Max training iterations (default: 100)"
         );
-        Console.WriteLine("    --batch-size|-b <num>         Batch size (default: 64)");
+        Console.WriteLine("    --l2 <float>                  L2 regularization (default: 0.1)");
         Console.WriteLine();
         Console.WriteLine("  FRAME EXTRACTION (for labeling):");
         Console.WriteLine(
@@ -422,6 +519,37 @@ internal class Program
         Console.WriteLine("    --sample-rate|-s <num>        Extract every N frames (default: 5)");
         Console.WriteLine("    --left-handed                 Mark frames as left-handed player");
         Console.WriteLine();
+        Console.WriteLine("  DATA AUGMENTATION:");
+        Console.WriteLine(
+            "    --augment|-a                  Augment labeled data by extracting adjacent frames"
+        );
+        Console.WriteLine(
+            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files (default: phasedata)"
+        );
+        Console.WriteLine(
+            "    --video-dir|-d <path>         Path to directory with video files (default: data)"
+        );
+        Console.WriteLine(
+            "    --offset|-n <num>             Number of frames before/after to extract (default: 1)"
+        );
+        Console.WriteLine(
+            "    --output|-o <path>            Output directory (default: same as labeled-data)"
+        );
+        Console.WriteLine();
+        Console.WriteLine("  FEATURE RE-EXTRACTION:");
+        Console.WriteLine(
+            "    --reextract|-r                Re-extract features from existing labeled JSON files"
+        );
+        Console.WriteLine(
+            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files (default: phasedata)"
+        );
+        Console.WriteLine(
+            "    --video-dir|-d <path>         Path to directory with video files (default: data)"
+        );
+        Console.WriteLine(
+            "    --output|-o <path>            Output directory (default: overwrites input files)"
+        );
+        Console.WriteLine();
         Console.WriteLine("  --help|-h               Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");
@@ -430,6 +558,8 @@ internal class Program
             "  dotnet run -p --labeled-frames data/labeled_frames/ -o phase_classifier"
         );
         Console.WriteLine("  dotnet run -f -d videos/ -o labeled_frames/ -s 10");
+        Console.WriteLine("  dotnet run -a -l phasedata -d data -n 2");
+        Console.WriteLine("  dotnet run -r -l phasedata -d data");
     }
 }
 
@@ -452,4 +582,16 @@ internal class LabeledFrameJson
 {
     public int Phase { get; set; }
     public float[]? Features { get; set; }
+}
+
+/// <summary>
+/// Configuration for data augmentation
+/// </summary>
+internal class AugmentationConfig
+{
+    public string LabeledDataDirectory { get; set; } = "phasedata";
+    public string VideoDirectory { get; set; } = "data";
+    public string? OutputDirectory { get; set; } = null; // Default: same as LabeledDataDirectory
+    public string MoveNetModelPath { get; set; } = "movenet/saved_model.pb";
+    public int OffsetFrames { get; set; } = 1;
 }

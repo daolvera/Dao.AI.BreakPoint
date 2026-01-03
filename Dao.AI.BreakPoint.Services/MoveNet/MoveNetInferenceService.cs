@@ -137,10 +137,18 @@ public class MoveNetInferenceService : IDisposable, IPoseInferenceService
     {
         // Convert bytes to NDArray, then crop and resize
         var imageArray = _imageProcessor.PreprocessImageBytes(imageBytes, cropSize);
-        var croppedImage = _imageProcessor.CropAndResize(imageArray, cropRegion, cropSize);
+        try
+        {
+            var croppedImage = _imageProcessor.CropAndResize(imageArray, cropRegion, cropSize);
 
-        // Run inference on the cropped image
-        return InferPoseFromImage(croppedImage, imageHeight, imageWidth, cropSize, cropRegion, prevFrame, prev2Frame, deltaTime);
+            // Run inference on the cropped image
+            return InferPoseFromImage(croppedImage, imageHeight, imageWidth, cropSize, cropRegion, prevFrame, prev2Frame, deltaTime);
+        }
+        catch
+        {
+            // On error, run inference on the original image
+            return InferPoseFromImage(imageArray, imageHeight, imageWidth, cropSize, null, prevFrame, prev2Frame, deltaTime);
+        }
     }
 
     public void Dispose()

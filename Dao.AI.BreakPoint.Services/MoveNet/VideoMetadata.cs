@@ -10,4 +10,10 @@ public class VideoMetadata
     public int Height { get; set; }
     public int TotalFrames { get; set; }
     public double DurationSeconds { get; set; }
+    public string? FileName { get; set; }
+
+    public override string ToString()
+    {
+        return $"VideoMetadata: {FileName}, {Width}x{Height}, {FrameRate}fps, {TotalFrames} frames, {DurationSeconds}s";
+    }
 }

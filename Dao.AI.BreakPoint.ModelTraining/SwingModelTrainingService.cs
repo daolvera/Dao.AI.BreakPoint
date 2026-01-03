@@ -1,11 +1,26 @@
-﻿using Dao.AI.BreakPoint.Services.SwingAnalyzer;
-using Tensorflow.NumPy;
+﻿using Dao.AI.BreakPoint.Services.MoveNet;
+using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using Microsoft.ML;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
-internal class SwingModelTrainingService()
+/// <summary>
+/// Service for training the swing quality analyzer model using ML.NET.
+/// Handles data preprocessing, training, and ONNX model export.
+/// </summary>
+internal class SwingModelTrainingService
 {
-    public async Task<string> TrainTensorFlowModelAsync(
+    private readonly MLContext _mlContext;
+
+    public SwingModelTrainingService()
+    {
+        _mlContext = new MLContext(seed: 42);
+    }
+
+    /// <summary>
+    /// Train the swing quality model and export to ONNX
+    /// </summary>
+    public async Task<string> TrainAsync(
         List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config
     )
@@ -14,56 +29,71 @@ internal class SwingModelTrainingService()
         ValidateTrainingInputs(processedSwingVideos, config);
 
         Console.WriteLine("Starting data preprocessing...");
-        var (inputData, targetData) = await PreprocessTrainingDataAsync(
-            processedSwingVideos,
-            config
-        );
+        var trainingData = await PreprocessTrainingDataAsync(processedSwingVideos, config);
 
-        Console.WriteLine($"Preprocessed {inputData.shape[0]} training samples");
-        Console.WriteLine($"Input shape: {inputData.shape}");
-        Console.WriteLine($"Target shape: {targetData.shape}");
-
-        // Validate preprocessed data
-        ValidatePreprocessedData(inputData, targetData, config);
-
-        var model = SwingCnnModel.BuildModelWithAttention(
-            config.SequenceLength,
-            config.NumFeatures
-        );
-        SwingCnnModel.CompileModel(model, config.LearningRate);
-
-        Console.WriteLine("Training CNN model for USTA rating prediction...");
+        Console.WriteLine($"Preprocessed {trainingData.Count} training samples");
         Console.WriteLine(
-            $"Model architecture: {config.SequenceLength} timesteps × {config.NumFeatures} features → 6 outputs"
+            $"Feature count: {config.NumFeatures * 3} aggregated features (mean, std, range) → quality score"
         );
 
-        try
-        {
-            var history = model.fit(
-                inputData,
-                targetData,
-                batch_size: config.BatchSize,
-                epochs: config.Epochs,
-                validation_split: config.ValidationSplit,
-                verbose: 1
+        // Load data into ML.NET DataView
+        var dataView = _mlContext.Data.LoadFromEnumerable(trainingData);
+
+        // Split data for training and validation
+        var splitData = _mlContext.Data.TrainTestSplit(
+            dataView,
+            testFraction: config.ValidationSplit
+        );
+
+        Console.WriteLine("Building ML.NET training pipeline...");
+
+        // Build the training pipeline for regression
+        // Using simplified model architecture for small datasets
+        var pipeline = _mlContext
+            .Transforms
+            // Normalize features
+            .NormalizeMinMax("Features")
+            // Train regression model using FastTree with reduced complexity
+            // Fewer trees and leaves prevent overfitting with limited training data
+            .Append(
+                _mlContext.Regression.Trainers.FastTree(
+                    labelColumnName: "QualityScore",
+                    featureColumnName: "Features",
+                    numberOfLeaves: 8,
+                    numberOfTrees: 15,
+                    minimumExampleCountPerLeaf: 2,
+                    learningRate: config.LearningRate
+                )
             );
 
-            // Ensure output directory exists
-            var outputDir = Path.GetDirectoryName(config.ModelOutputPath);
-            if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
-            {
-                Directory.CreateDirectory(outputDir);
-            }
+        Console.WriteLine("Training swing quality model...");
+        Console.WriteLine($"Using FastTree regression with {config.Epochs} trees");
 
-            model.save(config.ModelOutputPath);
-            Console.WriteLine($"Model saved to {config.ModelOutputPath}");
+        // Train the model
+        var model = pipeline.Fit(splitData.TrainSet);
 
-            return config.ModelOutputPath;
-        }
-        catch (Exception ex)
+        // Evaluate on test set
+        var predictions = model.Transform(splitData.TestSet);
+        var metrics = _mlContext.Regression.Evaluate(predictions, labelColumnName: "QualityScore");
+
+        Console.WriteLine("\n=== Training Results ===");
+        Console.WriteLine($"R-Squared: {metrics.RSquared:F4}");
+        Console.WriteLine($"Root Mean Squared Error: {metrics.RootMeanSquaredError:F4}");
+        Console.WriteLine($"Mean Absolute Error: {metrics.MeanAbsoluteError:F4}");
+
+        // Ensure output directory exists
+        var outputDir = Path.GetDirectoryName(config.ModelOutputPath);
+        if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
         {
-            throw new InvalidOperationException($"Model training failed: {ex.Message}", ex);
+            Directory.CreateDirectory(outputDir);
         }
+
+        // Export to ONNX format
+        Console.WriteLine($"\nExporting model to ONNX: {config.ModelOutputPath}");
+        await ExportToOnnxAsync(model, dataView, config.ModelOutputPath);
+
+        Console.WriteLine($"Model saved to {config.ModelOutputPath}");
+        return config.ModelOutputPath;
     }
 
     private static void ValidateTrainingInputs(
@@ -113,10 +143,10 @@ internal class SwingModelTrainingService()
                 }
 
                 // Check if swing has reasonable number of frames (at least 1 second)
-                if (swing.Frames.Count < trainingVideo.SwingVideo.FrameRate)
+                if (swing.Frames.Count < MoveNetVideoProcessor.MinSwingFrames)
                 {
                     Console.WriteLine(
-                        $"Warning: Swing has only {swing.Frames.Count} frames, expected at least {trainingVideo.SwingVideo.FrameRate}."
+                        $"Warning: Swing has only {swing.Frames.Count} frames, expected at least {MoveNetVideoProcessor.MinSwingFrames}."
                     );
                 }
 
@@ -131,170 +161,142 @@ internal class SwingModelTrainingService()
             throw new ArgumentException("No valid training videos found.");
         }
 
-        if (totalSwings < config.BatchSize)
-        {
-            throw new ArgumentException(
-                $"Not enough training data. Found {totalSwings} swings, but batch size is {config.BatchSize}."
-            );
-        }
-
         Console.WriteLine($"Validation passed: {validVideos} videos, {totalSwings} total swings");
     }
 
-    private static void ValidatePreprocessedData(
-        NDArray inputData,
-        NDArray targetData,
-        TrainingConfiguration config
-    )
-    {
-        if (inputData.shape.Length != 3)
-        {
-            throw new InvalidOperationException(
-                $"Input data should have 3 dimensions (batch, sequence, features), got {inputData.shape.Length}"
-            );
-        }
-
-        if (inputData.shape[1] != config.SequenceLength)
-        {
-            throw new InvalidOperationException(
-                $"Input sequence length mismatch. Expected {config.SequenceLength}, got {inputData.shape[1]}"
-            );
-        }
-
-        if (inputData.shape[2] != config.NumFeatures)
-        {
-            throw new InvalidOperationException(
-                $"Input feature count mismatch. Expected {config.NumFeatures}, got {inputData.shape[2]}"
-            );
-        }
-
-        if (targetData.shape.Length != 2)
-        {
-            throw new InvalidOperationException(
-                $"Target data should have 2 dimensions (batch, outputs), got {targetData.shape.Length}"
-            );
-        }
-
-        if (inputData.shape[0] != targetData.shape[0])
-        {
-            throw new InvalidOperationException(
-                $"Batch size mismatch. Input: {inputData.shape[0]}, Target: {targetData.shape[0]}"
-            );
-        }
-
-        if (targetData.shape[1] != 6)
-        {
-            throw new InvalidOperationException(
-                $"Target should have 6 outputs, got {targetData.shape[1]}"
-            );
-        }
-
-        Console.WriteLine("Data validation passed");
-    }
-
-    private static async Task<(
-        NDArray inputArray,
-        NDArray targetArray
-    )> PreprocessTrainingDataAsync(
+    private static async Task<List<SwingQualityInput>> PreprocessTrainingDataAsync(
         List<TrainingSwingVideo> processedSwingVideos,
         TrainingConfiguration config
     )
     {
-        var allInputSequences = new List<float[,]>();
-        var allTargets = new List<float[]>();
+        var trainingData = new List<SwingQualityInput>();
 
         foreach (var video in processedSwingVideos)
         {
             foreach (var swing in video.SwingVideo.Swings)
             {
-                float[,]? processedSequence;
                 try
                 {
-                    processedSequence = await SwingPreprocessingService.PreprocessSwingAsync(
+                    var features = await AggregateSequenceFeaturesAsync(
                         swing,
                         config.SequenceLength,
                         config.NumFeatures
                     );
+
+                    if (features != null)
+                    {
+                        trainingData.Add(
+                            new SwingQualityInput
+                            {
+                                Features = features,
+                                QualityScore = (float)video.TrainingLabel.QualityScore,
+                            }
+                        );
+                    }
                 }
                 catch
                 {
+                    // Skip problematic swings
                     continue;
-                }
-                if (processedSequence != null)
-                {
-                    allInputSequences.Add(processedSequence);
-                    // Target: quality score (0-100) and sub-component scores derived from it
-                    // TODO: Once attention mechanism is added, these sub-scores will come from attention weights
-                    var qualityScore = (float)video.TrainingLabel.QualityScore;
-                    var targets = new float[]
-                    {
-                        qualityScore, // Overall quality score
-                        qualityScore * 0.9f, // Shoulder rotation score (placeholder)
-                        qualityScore * 0.95f, // Contact point score (placeholder)
-                        qualityScore * 0.85f, // Preparation score (placeholder)
-                        qualityScore * 0.8f, // Balance score (placeholder)
-                        qualityScore * 0.9f, // Follow-through score (placeholder)
-                    };
-                    allTargets.Add(targets);
                 }
             }
         }
 
-        if (allInputSequences.Count == 0)
+        if (trainingData.Count == 0)
         {
             throw new InvalidOperationException(
                 "No valid training sequences found in the provided data."
             );
         }
 
-        var inputArray = ConvertToNDArray(
-            allInputSequences,
-            config.SequenceLength,
-            config.NumFeatures
-        );
-        var targetArray = ConvertTargetsToNDArray(allTargets);
-
-        return (inputArray, targetArray);
+        return trainingData;
     }
 
-    private static NDArray ConvertToNDArray(
-        List<float[,]> sequences,
-        int sequenceLength,
+    /// <summary>
+    /// Aggregate sequence features into a fixed-size vector using statistics.
+    /// Since ML.NET doesn't support variable-length sequences like CNNs,
+    /// we compute mean, std, and range for each feature across time.
+    /// Reduced from 5 to 3 statistics to prevent feature explosion with small datasets.
+    /// </summary>
+    private static Task<float[]?> AggregateSequenceFeaturesAsync(
+        SwingData swing,
+        int targetLength,
         int numFeatures
     )
     {
-        var batchSize = sequences.Count;
-        var data = new float[batchSize, sequenceLength, numFeatures];
-
-        for (int i = 0; i < batchSize; i++)
+        return Task.Run(() =>
         {
-            var sequence = sequences[i];
-            for (int j = 0; j < sequenceLength; j++)
-            {
-                for (int k = 0; k < numFeatures; k++)
-                {
-                    data[i, j, k] = sequence[j, k];
-                }
-            }
-        }
+            if (swing.Frames == null || swing.Frames.Count == 0)
+                return null;
 
-        return np.array(data);
+            // First, get the raw sequence
+            var rawSequence = SwingPreprocessingService
+                .PreprocessSwingAsync(swing, targetLength, numFeatures)
+                .GetAwaiter()
+                .GetResult();
+
+            if (rawSequence == null)
+                return null;
+
+            // Compute aggregated statistics for each feature
+            // 3 statistics per feature: mean, std, range (reduced from 5 to prevent overfitting)
+            var aggregatedFeatures = new float[numFeatures * 3];
+
+            for (int f = 0; f < numFeatures; f++)
+            {
+                var values = new List<float>();
+                for (int t = 0; t < targetLength; t++)
+                {
+                    var val = rawSequence[t, f];
+                    // Skip NaN values for cleaner statistics
+                    if (!float.IsNaN(val) && !float.IsInfinity(val))
+                    {
+                        values.Add(val);
+                    }
+                }
+
+                int baseIdx = f * 3;
+
+                // Handle empty or all-NaN case
+                if (values.Count == 0)
+                {
+                    aggregatedFeatures[baseIdx + 0] = 0f; // mean
+                    aggregatedFeatures[baseIdx + 1] = 0f; // std
+                    aggregatedFeatures[baseIdx + 2] = 0f; // range
+                    continue;
+                }
+
+                // Calculate statistics
+                float mean = values.Average();
+                float variance = values.Sum(v => (v - mean) * (v - mean)) / values.Count;
+                float std = MathF.Sqrt(variance);
+                float min = values.Min();
+                float max = values.Max();
+                float range = max - min;
+
+                // Store in aggregated vector
+                aggregatedFeatures[baseIdx + 0] = SanitizeFloat(mean);
+                aggregatedFeatures[baseIdx + 1] = SanitizeFloat(std);
+                aggregatedFeatures[baseIdx + 2] = SanitizeFloat(range);
+            }
+
+            return aggregatedFeatures;
+        });
     }
 
-    private static NDArray ConvertTargetsToNDArray(List<float[]> targets)
+    private static float SanitizeFloat(float value)
     {
-        var batchSize = targets.Count;
-        var numOutputs = targets[0].Length;
-        var data = new float[batchSize, numOutputs];
+        if (float.IsNaN(value) || float.IsInfinity(value))
+            return 0f;
+        return value;
+    }
 
-        for (int i = 0; i < batchSize; i++)
+    private Task ExportToOnnxAsync(ITransformer model, IDataView dataView, string outputPath)
+    {
+        return Task.Run(() =>
         {
-            for (int j = 0; j < numOutputs; j++)
-            {
-                data[i, j] = targets[i][j];
-            }
-        }
-
-        return np.array(data);
+            using var stream = File.Create(outputPath);
+            _mlContext.Model.ConvertToOnnx(model, dataView, stream);
+        });
     }
 }

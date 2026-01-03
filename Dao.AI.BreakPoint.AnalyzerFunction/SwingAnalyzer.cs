@@ -14,9 +14,9 @@ public class SwingAnalyzer(
     [Function(nameof(SwingAnalyzer))]
     public async Task Run(
         [BlobTrigger(
-            "swing-analysis/{analysisEventId}",
+            "swing-analysis/{analysisRequestId}",
             Source = BlobTriggerSource.EventGrid,
-            Connection = ""
+            Connection = "BlobStorage"
         )]
             Stream videoStream,
         int analysisRequestId

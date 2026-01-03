@@ -1,0 +1,40 @@
+# Build outputs
+**/bin/
+**/obj/
+**/out/
+
+# IDE and editor
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Dependencies (frontend)
+**/node_modules/
+**/.angular/
+
+# Test results
+**/TestResults/
+**/coverage/
+
+# Misc
+**/*.md
+**/LICENSE*
+**/.env*
+**/appsettings.Development.json
+**/local.settings.json
+.azure/
+.github/
+
+# Models (large files - will be downloaded separately in production)
+**/*.onnx
+
+# Training data
+**/data/
+**/phasedata/

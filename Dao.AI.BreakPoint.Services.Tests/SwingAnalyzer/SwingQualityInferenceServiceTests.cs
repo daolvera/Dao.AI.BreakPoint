@@ -9,7 +9,7 @@ namespace Dao.AI.BreakPoint.Services.Tests.SwingAnalyzer;
 public class SwingQualityInferenceServiceTests
 {
     private const int SequenceLength = 90;
-    private const int NumFeatures = 66;
+    private const int NumFeatures = SwingPreprocessingService.FocusedFeatureCount;
 
     #region Feature Importance Tests
 
@@ -42,11 +42,11 @@ public class SwingQualityInferenceServiceTests
         // Act
         var result = service.RunInference(preprocessedSwing);
 
-        // Assert - Should contain key tennis-related features
+        // Assert - Should contain key tennis-related features (focused feature set)
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Wrist"));
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Shoulder"));
-        result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Hip"));
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Elbow"));
+        // Note: Hip features are not included in the focused feature set
     }
 
     [Fact]
@@ -57,17 +57,19 @@ public class SwingQualityInferenceServiceTests
         using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
         var preprocessedSwing = new float[SequenceLength, NumFeatures];
 
-        // Set high variance for Right Wrist Velocity (index 5)
-        // And low variance for other features
+        // Set high variance for Right Wrist Velocity (index 9 in focused layout)
+        // Layout: LeftShoulder(0,1), RightShoulder(2,3), LeftElbow(4,5), RightElbow(6,7), LeftWrist(8,9), RightWrist(10,11)
+        const int rightWristVelocityIndex = 10; // Right Wrist Velocity
+
         for (int t = 0; t < SequenceLength; t++)
         {
             // High variance feature - oscillates significantly
-            preprocessedSwing[t, 5] = (float)Math.Sin(t * 0.5) * 10f;
+            preprocessedSwing[t, rightWristVelocityIndex] = (float)Math.Sin(t * 0.5) * 10f;
 
             // Low variance features - nearly constant
             for (int f = 0; f < NumFeatures; f++)
             {
-                if (f != 5)
+                if (f != rightWristVelocityIndex)
                 {
                     preprocessedSwing[t, f] = 0.5f;
                 }
@@ -259,27 +261,29 @@ public class SwingQualityInferenceServiceTests
     {
         var data = new float[SequenceLength, NumFeatures];
 
-        // Good swing characteristics:
-        // - High wrist velocity (indices 4, 5)
-        // - Good shoulder angles (indices 26, 27)
-        // - Good hip angles (indices 28, 29)
+        // Good swing characteristics (focused 16-feature layout):
+        // Layout: LeftShoulder(0,1), RightShoulder(2,3), LeftElbow(4,5), RightElbow(6,7),
+        //         LeftWrist(8,9), RightWrist(10,11), Angles(12-15)
+        // - High wrist velocity (index 10 = Right Wrist Velocity)
+        // - Good shoulder angles (index 15 = Right Shoulder Angle)
+        // - Good elbow angles (index 13 = Right Elbow Angle)
         for (int t = 0; t < SequenceLength; t++)
         {
             float progress = t / (float)SequenceLength;
 
             // Right wrist velocity - smooth acceleration pattern
-            data[t, 5] = (float)Math.Sin(progress * Math.PI) * 15f;
+            data[t, 10] = (float)Math.Sin(progress * Math.PI) * 15f;
 
             // Right shoulder angle - good rotation
-            data[t, 27] = (float)(45 + 30 * Math.Sin(progress * Math.PI));
+            data[t, 15] = (float)(45 + 30 * Math.Sin(progress * Math.PI));
 
-            // Right hip angle - good rotation
-            data[t, 29] = (float)(90 + 20 * Math.Sin(progress * Math.PI));
+            // Right elbow angle - good extension
+            data[t, 13] = (float)(90 + 20 * Math.Sin(progress * Math.PI));
 
             // Fill other features with moderate values
             for (int f = 0; f < NumFeatures; f++)
             {
-                if (f != 5 && f != 27 && f != 29)
+                if (f != 10 && f != 15 && f != 13)
                 {
                     data[t, f] = 0.5f + (float)Math.Sin(t * 0.05) * 0.2f;
                 }
@@ -293,25 +297,25 @@ public class SwingQualityInferenceServiceTests
     {
         var data = new float[SequenceLength, NumFeatures];
 
-        // Poor swing characteristics:
+        // Poor swing characteristics (focused 16-feature layout):
         // - Low, inconsistent wrist velocity
         // - Minimal shoulder rotation
-        // - Minimal hip rotation
+        // - Minimal elbow extension
         for (int t = 0; t < SequenceLength; t++)
         {
             // Very low wrist velocity
-            data[t, 5] = 0.1f;
+            data[t, 10] = 0.1f;
 
             // Minimal shoulder angle variation
-            data[t, 27] = 0.1f;
+            data[t, 15] = 0.1f;
 
-            // Minimal hip angle variation
-            data[t, 29] = 0.1f;
+            // Minimal elbow angle variation
+            data[t, 13] = 0.1f;
 
             // Fill other features with low values
             for (int f = 0; f < NumFeatures; f++)
             {
-                if (f != 5 && f != 27 && f != 29)
+                if (f != 10 && f != 15 && f != 13)
                 {
                     data[t, f] = 0.1f;
                 }

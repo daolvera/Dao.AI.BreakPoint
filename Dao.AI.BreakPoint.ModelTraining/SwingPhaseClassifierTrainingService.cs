@@ -1,17 +1,25 @@
+using System.Text.Json;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
-using Tensorflow.NumPy;
+using Microsoft.ML;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
 /// <summary>
-/// Service for training the swing phase classifier model.
-/// Handles data preprocessing, training, and model export.
+/// Service for training the swing phase classifier model using ML.NET.
+/// Handles data preprocessing, training, and ONNX model export.
 /// </summary>
 public class SwingPhaseClassifierTrainingService
 {
+    private readonly MLContext _mlContext;
+
+    public SwingPhaseClassifierTrainingService()
+    {
+        _mlContext = new MLContext(seed: 42);
+    }
+
     /// <summary>
-    /// Train the swing phase classifier from labeled frame data
+    /// Train the swing phase classifier from labeled frame data and export to ONNX
     /// </summary>
     public async Task<string> TrainAsync(
         List<LabeledFrameData> labeledFrames,
@@ -21,47 +29,104 @@ public class SwingPhaseClassifierTrainingService
         ValidateTrainingInputs(labeledFrames, config);
 
         Console.WriteLine("Preprocessing labeled frame data...");
-        var (inputData, targetData) = await PreprocessTrainingDataAsync(labeledFrames);
+        var trainingData = PreprocessTrainingData(labeledFrames);
 
-        Console.WriteLine($"Preprocessed {inputData.shape[0]} training samples");
-        Console.WriteLine($"Input shape: {inputData.shape}");
-        Console.WriteLine($"Target shape: {targetData.shape}");
-
-        var model = SwingPhaseClassifierModel.BuildModel();
-        SwingPhaseClassifierModel.CompileModel(model, config.LearningRate);
-
-        Console.WriteLine("Training swing phase classifier...");
+        Console.WriteLine($"Preprocessed {trainingData.Count} training samples");
         Console.WriteLine(
-            $"Architecture: {SwingPhaseClassifierModel.TotalFeatures} inputs → 5 classes"
+            $"Feature count: {SwingPhaseClassifierModel.TotalFeatures} → {SwingPhaseClassifierModel.NumClasses} classes"
         );
 
-        try
-        {
-            var history = model.fit(
-                inputData,
-                targetData,
-                batch_size: config.BatchSize,
-                epochs: config.Epochs,
-                validation_split: config.ValidationSplit,
-                verbose: 1
-            );
+        // Load data into ML.NET DataView
+        var dataView = _mlContext.Data.LoadFromEnumerable(trainingData);
 
-            // Ensure output directory exists
-            var outputDir = Path.GetDirectoryName(config.ModelOutputPath);
-            if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
+        // Split data for training and validation
+        var splitData = _mlContext.Data.TrainTestSplit(dataView, testFraction: 0.2);
+
+        Console.WriteLine("Building ML.NET training pipeline...");
+
+        // LightGBM (gradient boosting) - best for pose classification with non-linear patterns
+        Console.WriteLine("Using LightGBM trainer with class balancing...");
+        var pipeline = _mlContext
+            .Transforms
+            // Normalize features using z-score
+            .NormalizeMeanVariance("Features")
+            // Convert label to key for multiclass classification
+            .Append(_mlContext.Transforms.Conversion.MapValueToKey("Label"))
+            // LightGBM handles non-linear relationships much better than linear classifiers
+            .Append(
+                _mlContext.MulticlassClassification.Trainers.LightGbm(
+                    labelColumnName: "Label",
+                    featureColumnName: "Features",
+                    numberOfIterations: 300,
+                    numberOfLeaves: 31,
+                    minimumExampleCountPerLeaf: 10,
+                    learningRate: 0.05
+                )
+            )
+            // Convert predicted label back to original value
+            .Append(_mlContext.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
+
+        Console.WriteLine("Training swing phase classifier...");
+
+        // Train the model
+        var model = pipeline.Fit(splitData.TrainSet);
+
+        // Evaluate on test set
+        var predictions = model.Transform(splitData.TestSet);
+        var metrics = _mlContext.MulticlassClassification.Evaluate(predictions);
+
+        Console.WriteLine("\n=== Training Results ===");
+        Console.WriteLine($"Macro Accuracy: {metrics.MacroAccuracy:P2}");
+        Console.WriteLine($"Micro Accuracy: {metrics.MicroAccuracy:P2}");
+        Console.WriteLine($"Log Loss: {metrics.LogLoss:F4}");
+
+        // Ensure output directory exists
+        var outputDir = Path.GetDirectoryName(config.ModelOutputPath);
+        if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir))
+        {
+            Directory.CreateDirectory(outputDir);
+        }
+
+        // Export to ONNX format
+        Console.WriteLine($"\nExporting model to ONNX: {config.ModelOutputPath}");
+        await ExportToOnnxAsync(model, dataView, config.ModelOutputPath);
+
+        Console.WriteLine($"Model saved to {config.ModelOutputPath}");
+        return config.ModelOutputPath;
+    }
+
+    /// <summary>
+    /// Load labeled frames from JSON files in a directory
+    /// </summary>
+    public static List<LabeledFrameData> LoadLabeledFramesFromDirectory(string directory)
+    {
+        var labeledFrames = new List<LabeledFrameData>();
+        var jsonFiles = Directory.GetFiles(directory, "*.json");
+
+        Console.WriteLine($"Found {jsonFiles.Length} JSON files in {directory}");
+
+        foreach (var file in jsonFiles)
+        {
+            try
             {
-                Directory.CreateDirectory(outputDir);
+                var json = File.ReadAllText(file);
+                var frames = JsonSerializer.Deserialize<List<LabeledFrameData>>(
+                    json,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                );
+
+                if (frames != null)
+                {
+                    labeledFrames.AddRange(frames);
+                }
             }
-
-            model.save(config.ModelOutputPath);
-            Console.WriteLine($"Model saved to {config.ModelOutputPath}");
-
-            return config.ModelOutputPath;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Could not load {file}: {ex.Message}");
+            }
         }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Model training failed: {ex.Message}", ex);
-        }
+
+        return labeledFrames;
     }
 
     private static void ValidateTrainingInputs(
@@ -85,76 +150,70 @@ public class SwingPhaseClassifierTrainingService
         {
             if (frame.PhaseLabel < 0 || frame.PhaseLabel >= SwingPhaseClassifierModel.NumClasses)
             {
-                throw new ArgumentException($"Invalid phase label: {frame.PhaseLabel}");
+                throw new ArgumentException($"Invalid phase label: {frame.PhaseLabel} on frame");
             }
             classCounts[frame.PhaseLabel]++;
         }
 
         Console.WriteLine("Class distribution:");
-        string[] classNames = ["None", "Preparation", "Backswing", "Swing", "FollowThrough"];
         for (int i = 0; i < SwingPhaseClassifierModel.NumClasses; i++)
         {
-            Console.WriteLine($"  {classNames[i]}: {classCounts[i]} samples");
+            Console.WriteLine(
+                $"  {SwingPhaseClassifierModel.ClassNames[i]}: {classCounts[i]} samples"
+            );
         }
 
         // Warn about class imbalance
-        int minSamples = classCounts.Where(c => c > 0).Min();
+        int minSamples = classCounts.Where(c => c > 0).DefaultIfEmpty(0).Min();
         int maxSamples = classCounts.Max();
-        if (maxSamples > minSamples * 5)
+        if (maxSamples > minSamples * 5 && minSamples > 0)
         {
             Console.WriteLine(
                 "Warning: Significant class imbalance detected. Consider oversampling minority classes."
             );
         }
 
-        if (labeledFrames.Count < config.BatchSize)
-        {
-            throw new ArgumentException(
-                $"Not enough training data. Found {labeledFrames.Count} samples, but batch size is {config.BatchSize}."
-            );
-        }
-
         Console.WriteLine($"Validation passed: {labeledFrames.Count} total samples");
     }
 
-    private static Task<(NDArray inputArray, NDArray targetArray)> PreprocessTrainingDataAsync(
+    private static List<PhaseClassifierInput> PreprocessTrainingData(
         List<LabeledFrameData> labeledFrames
     )
     {
-        return Task.Run(() =>
+        var trainingData = new List<PhaseClassifierInput>();
+
+        foreach (var frame in labeledFrames)
         {
-            int numSamples = labeledFrames.Count;
-            int numFeatures = SwingPhaseClassifierModel.TotalFeatures;
-            int numClasses = SwingPhaseClassifierModel.NumClasses;
+            // Ensure feature array is correct size (pad or truncate if needed)
+            var features = new float[SwingPhaseClassifierModel.TotalFeatures];
+            int copyLength = Math.Min(frame.Features.Length, features.Length);
 
-            // Input array: [numSamples, numFeatures]
-            var inputData = new float[numSamples, numFeatures];
-
-            // Target array: one-hot encoded [numSamples, numClasses]
-            var targetData = new float[numSamples, numClasses];
-
-            for (int i = 0; i < numSamples; i++)
+            for (int i = 0; i < copyLength; i++)
             {
-                var frame = labeledFrames[i];
-
-                // Copy features (pad with zeros if needed)
-                int featureCount = Math.Min(frame.Features.Length, numFeatures);
-                for (int j = 0; j < featureCount; j++)
-                {
-                    inputData[i, j] = float.IsNaN(frame.Features[j]) ? 0f : frame.Features[j];
-                }
-
-                // One-hot encode the label
-                targetData[i, frame.PhaseLabel] = 1.0f;
+                var val = frame.Features[i];
+                features[i] = (float.IsNaN(val) || float.IsInfinity(val)) ? 0f : val;
             }
 
-            return (np.array(inputData), np.array(targetData));
+            trainingData.Add(
+                new PhaseClassifierInput { Features = features, Label = (uint)frame.PhaseLabel }
+            );
+        }
+
+        return trainingData;
+    }
+
+    private Task ExportToOnnxAsync(ITransformer model, IDataView dataView, string outputPath)
+    {
+        return Task.Run(() =>
+        {
+            using var stream = File.Create(outputPath);
+            _mlContext.Model.ConvertToOnnx(model, dataView, stream);
         });
     }
 
     /// <summary>
     /// Extract features from a single frame for training or inference.
-    /// This matches the input format expected by the classifier.
+    /// Delegates to the new pose-relative feature extractor.
     /// </summary>
     public static float[] ExtractFrameFeatures(
         JointData[] keypoints,
@@ -164,92 +223,13 @@ public class SwingPhaseClassifierTrainingService
         FrameData? prev2Frame = null
     )
     {
-        var features = new List<float>();
-
-        // Current frame features
-        AddFrameFeatures(features, keypoints, angles);
-
-        // Previous frame features (or zeros if not available)
-        if (prevFrame != null)
-        {
-            AddFrameFeatures(features, prevFrame.Joints, GetAnglesFromFrameData(prevFrame));
-        }
-        else
-        {
-            AddZeroFrameFeatures(features);
-        }
-
-        // Previous-previous frame features (or zeros if not available)
-        if (prev2Frame != null)
-        {
-            AddFrameFeatures(features, prev2Frame.Joints, GetAnglesFromFrameData(prev2Frame));
-        }
-        else
-        {
-            AddZeroFrameFeatures(features);
-        }
-
-        // Handedness (constant across frames)
-        features.Add(isRightHanded ? 1.0f : 0.0f);
-
-        return [.. features];
-    }
-
-    private static void AddFrameFeatures(
-        List<float> features,
-        JointData[] keypoints,
-        float[] angles
-    )
-    {
-        // Keypoint features: x, y, confidence for all 17 joints (51 features)
-        for (int i = 0; i < MoveNetVideoProcessor.NumKeyPoints; i++)
-        {
-            features.Add(keypoints[i].X);
-            features.Add(keypoints[i].Y);
-            features.Add(keypoints[i].Confidence);
-        }
-
-        // Joint angles (8 features)
-        foreach (var angle in angles)
-        {
-            features.Add(angle / 180.0f); // Normalize to 0-1 range
-        }
-
-        // Velocities for key joints: shoulders, elbows, wrists, hips, knees, ankles (12 features)
-        int[] velocityJoints = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-        foreach (var jointIdx in velocityJoints)
-        {
-            features.Add((keypoints[jointIdx].Speed ?? 0) / 1000.0f); // Normalize
-        }
-
-        // Accelerations for same joints (12 features)
-        foreach (var jointIdx in velocityJoints)
-        {
-            features.Add((keypoints[jointIdx].Acceleration ?? 0) / 10000.0f); // Normalize
-        }
-    }
-
-    private static void AddZeroFrameFeatures(List<float> features)
-    {
-        // 51 keypoint features + 8 angles + 12 velocities + 12 accelerations = 83 features
-        for (int i = 0; i < SwingPhaseClassifierModel.FeaturesPerFrame; i++)
-        {
-            features.Add(0.0f);
-        }
-    }
-
-    private static float[] GetAnglesFromFrameData(FrameData frame)
-    {
-        return
-        [
-            frame.LeftElbowAngle,
-            frame.RightElbowAngle,
-            frame.LeftShoulderAngle,
-            frame.RightShoulderAngle,
-            frame.LeftHipAngle,
-            frame.RightHipAngle,
-            frame.LeftKneeAngle,
-            frame.RightKneeAngle,
-        ];
+        // Use the new pose-relative feature extractor
+        return SwingPhaseFeatureExtractor.ExtractFeatures(
+            keypoints,
+            angles,
+            isRightHanded,
+            prevFrame,
+            prev2Frame
+        );
     }
 }

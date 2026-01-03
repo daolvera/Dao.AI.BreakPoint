@@ -1,0 +1,62 @@
+### Event Grid Blob Trigger Test
+### This file simulates an Event Grid event for local testing
+### Use with VS Code REST Client extension or similar
+
+@functionUrl = http://localhost:7071/runtime/webhooks/blobs
+@blobTriggerFunction = SwingAnalyzer
+@analysisRequestId = 1
+
+### Simulate Event Grid Blob Created Event
+### This triggers the SwingAnalyzer function as if a blob was uploaded
+POST {{functionUrl}}?functionName={{blobTriggerFunction}}
+Content-Type: application/json
+aeg-event-type: Notification
+
+[
+  {
+    "topic": "/subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.Storage/storageAccounts/storage",
+    "subject": "/blobServices/default/containers/swing-analysis/blobs/{{analysisRequestId}}",
+    "eventType": "Microsoft.Storage.BlobCreated",
+    "eventTime": "{{$datetime iso8601}}",
+    "id": "{{$guid}}",
+    "data": {
+      "api": "PutBlob",
+      "clientRequestId": "{{$guid}}",
+      "requestId": "{{$guid}}",
+      "eTag": "0x8D4BCC2E4835CD0",
+      "contentType": "video/mp4",
+      "contentLength": 524288,
+      "blobType": "BlockBlob",
+      "url": "http://127.0.0.1:10000/devstoreaccount1/swing-analysis/{{analysisRequestId}}",
+      "sequencer": "00000000000004420000000000028963",
+      "storageDiagnostics": {
+        "batchId": "{{$guid}}"
+      }
+    },
+    "dataVersion": "",
+    "metadataVersion": "1"
+  }
+]
+
+###
+### Alternative: Validation Subscription Request
+### Use this to validate the webhook endpoint
+POST {{functionUrl}}?functionName={{blobTriggerFunction}}
+Content-Type: application/json
+aeg-event-type: SubscriptionValidation
+
+[
+  {
+    "id": "{{$guid}}",
+    "topic": "/subscriptions/{subscription-id}/resourceGroups/{resource-group}/providers/Microsoft.Storage/storageAccounts/storage",
+    "subject": "",
+    "data": {
+      "validationCode": "512d38b6-c7b8-40c8-89fe-f46f9e9622b6",
+      "validationUrl": "https://rp-eastus2.eventgrid.azure.net:553/eventsubscriptions/estest/validate?id=512d38b6-c7b8-40c8-89fe-f46f9e9622b6&t=2022-06-09T18:23:06.2993422Z&apiVersion=2020-01-01-preview"
+    },
+    "eventType": "Microsoft.EventGrid.SubscriptionValidationEvent",
+    "eventTime": "{{$datetime iso8601}}",
+    "metadataVersion": "1",
+    "dataVersion": "2"
+  }
+]

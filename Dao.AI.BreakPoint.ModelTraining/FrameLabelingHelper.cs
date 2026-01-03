@@ -1,6 +1,6 @@
-using System.Text.Json;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
@@ -12,6 +12,11 @@ public class FrameLabelingHelper
 {
     private readonly string _moveNetModelPath;
     private readonly string _outputDirectory;
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
+    };
 
     public FrameLabelingHelper(string moveNetModelPath, string outputDirectory)
     {
@@ -46,69 +51,82 @@ public class FrameLabelingHelper
         FrameData? prevFrame = null;
         FrameData? prev2Frame = null;
 
-        for (int frameIndex = 0; frameIndex < frameImages.Count; frameIndex++)
+        for (int frameIndex = 1; frameIndex < frameImages.Count; frameIndex++)
         {
-            var frame = frameImages[frameIndex];
-
-            var keypoints = inferenceService.RunInference(
-                frame,
-                cropRegion,
-                metadata.Height,
-                metadata.Width,
-                prevFrame,
-                prev2Frame,
-                deltaTime
-            );
-
-            var angles = inferenceService.ComputeJointAngles(
-                keypoints,
-                metadata.Height,
-                metadata.Width
-            );
-
-            // Only sample every N frames to reduce labeling work
-            if (frameIndex % sampleEveryNFrames == 0)
+            bool isFrameToSample = frameIndex % sampleEveryNFrames == 0;
+            bool isFrameBeforeSample = (frameIndex + 1) % sampleEveryNFrames == 0;
+            bool isFrameTwoBeforeSample = (frameIndex + 2) % sampleEveryNFrames == 0;
+            // only do the work when needed
+            if (isFrameToSample || isFrameBeforeSample || isFrameTwoBeforeSample)
             {
-                // Extract features for the classifier
-                var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
-                    keypoints,
-                    angles,
-                    isRightHanded,
+                var frame = frameImages[frameIndex];
+
+                var keypoints = inferenceService.RunInference(
+                    frame,
+                    cropRegion,
+                    metadata.Height,
+                    metadata.Width,
                     prevFrame,
-                    prev2Frame
+                    prev2Frame,
+                    deltaTime
                 );
 
-                // Create unlabeled frame data
-                var frameData = new UnlabeledFrameJson
+                var angles = inferenceService.ComputeJointAngles(
+                    keypoints,
+                    metadata.Height,
+                    metadata.Width
+                );
+
+                if (isFrameTwoBeforeSample)
                 {
-                    VideoName = videoName,
-                    FrameIndex = frameIndex,
-                    Timestamp = frameIndex / metadata.FrameRate,
-                    IsRightHanded = isRightHanded,
-                    Features = features,
-                    Phase = -1, // -1 indicates unlabeled, user needs to set 0-4
-                };
+                    prev2Frame = CreateFrameData(keypoints, angles, frameIndex);
+                }
+                if (isFrameBeforeSample)
+                {
+                    prevFrame = CreateFrameData(keypoints, angles, frameIndex);
+                }
 
-                // Save to JSON file
-                var outputPath = Path.Combine(
-                    _outputDirectory,
-                    $"{videoName}_frame_{frameIndex:D5}.json"
-                );
+                // Only sample every N frames to reduce labeling work
+                if (frameIndex % sampleEveryNFrames == 0)
+                {
+                    // Extract features for the classifier
+                    var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
+                        keypoints,
+                        angles,
+                        isRightHanded,
+                        prevFrame,
+                        prev2Frame
+                    );
 
-                var json = JsonSerializer.Serialize(
-                    frameData,
-                    new JsonSerializerOptions { WriteIndented = true }
-                );
+                    // Create unlabeled frame data
+                    var frameData = new UnlabeledFrameJson
+                    {
+                        VideoName = videoName,
+                        FrameIndex = frameIndex,
+                        Timestamp = frameIndex / metadata.FrameRate,
+                        IsRightHanded = isRightHanded,
+                        Features = features,
+                        Phase = -1, // -1 indicates unlabeled, user needs to set 0-4
+                    };
 
-                await File.WriteAllTextAsync(outputPath, json);
+                    // Save to JSON file
+                    var outputPath = Path.Combine(
+                        _outputDirectory,
+                        $"{videoName}_frame_{frameIndex:D5}.json"
+                    );
+
+                    var json = JsonSerializer.Serialize(
+                        frameData,
+                        _jsonOptions
+                    );
+
+                    await File.WriteAllTextAsync(outputPath, json);
+                }
+
+                // Update crop region
+                cropRegion = GetCropRegion(keypoints, metadata);
             }
 
-            // Update previous frames for velocity calculation
-            prev2Frame = prevFrame;
-            prevFrame = CreateFrameData(keypoints, angles, frameIndex);
-
-            // Update crop region
-            cropRegion = GetCropRegion(keypoints, metadata);
         }
 
         Console.WriteLine(

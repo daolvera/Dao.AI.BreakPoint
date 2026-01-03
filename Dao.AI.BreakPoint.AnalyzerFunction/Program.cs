@@ -15,8 +15,11 @@ builder.ConfigureFunctionsWebApplication();
 builder.Services.AddApplicationInsightsTelemetryWorkerService();
 builder.Services.ConfigureFunctionsApplicationInsights();
 
-// Configure database connection using Aspire MySQL extension
-builder.AddMySqlDbContext<BreakPointDbContext>("BreakPointDb");
+// Configure database connection using Aspire PostgreSQL extension
+builder.AddNpgsqlDbContext<BreakPointDbContext>("BreakPointDb");
+
+// Configure Azure Blob Storage using Aspire extension
+builder.AddAzureBlobServiceClient("BlobStorage");
 
 // Register video processing service
 builder.Services.AddSingleton<IVideoProcessingService, OpenCvVideoProcessingService>();
@@ -38,15 +41,8 @@ builder.Services.Configure<SwingQualityModelOptions>(options =>
     }
 });
 
-// Register blob storage
-builder.Services.AddBlobStorage(options =>
-{
-    var section = builder.Configuration.GetSection(BlobStorageOptions.SectionName);
-    if (section.Exists())
-    {
-        section.Bind(options);
-    }
-});
+// Register blob storage using Aspire-injected BlobServiceClient
+builder.Services.AddAspirerBlobStorage();
 
 // Register analysis services (includes repositories)
 builder.Services.AddAnalysisServices();
