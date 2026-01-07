@@ -1,5 +1,11 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
+// Application Insights for telemetry
+var insights = builder.AddAzureApplicationInsights("appinsights");
+
+// Key Vault for secrets
+var keyVault = builder.AddAzureKeyVault("keyvault");
+
 // Database
 var postgres = builder.AddPostgres("postgres").WithLifetime(ContainerLifetime.Persistent);
 
@@ -24,14 +30,19 @@ var breakPointApi = builder
     .WaitFor(migrations)
     .WithReference(breakPointDb)
     .WithReference(blobStorage)
+    .WithReference(insights)
+    .WithReference(keyVault)
     .WithHttpHealthCheck("/health");
 
 // Azure Function (Swing Analyzer)
 var analyzerFunction = builder
-    .AddAzureFunctionsProject<Projects.Dao_AI_BreakPoint_AnalyzerFunction>("breakpointanalyzerfunction")
+    .AddAzureFunctionsProject<Projects.Dao_AI_BreakPoint_AnalyzerFunction>(
+        "breakpointanalyzerfunction"
+    )
     .WithHostStorage(storage)
     .WithReference(breakPointDb)
-    .WithReference(blobStorage);
+    .WithReference(blobStorage)
+    .WithReference(insights);
 
 // Frontend App
 var breakPointApp = builder

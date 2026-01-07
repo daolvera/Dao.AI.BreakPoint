@@ -283,4 +283,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       minute: '2-digit',
     });
   }
+
+  protected deleteRequest(requestId: number): void {
+    this.analysisService.deleteRequest(requestId).subscribe({
+      error: (err) => console.error('Failed to delete request:', err),
+    });
+  }
 }

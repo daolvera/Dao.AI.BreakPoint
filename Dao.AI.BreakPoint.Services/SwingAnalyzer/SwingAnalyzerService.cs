@@ -1,28 +1,26 @@
-﻿using System.Text.Json;
-using Dao.AI.BreakPoint.Data.Enums;
+﻿using Dao.AI.BreakPoint.Data.Enums;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.Options;
+using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
 public class SwingAnalyzerService(
     IVideoProcessingService VideoProcessingService,
-    IOptions<MoveNetOptions> MoveNetOptions,
-    IOptions<SwingPhaseClassifierOptions> PhaseClassifierOptions,
-    IOptions<SwingQualityModelOptions> SwingQualityOptions,
     ISkeletonOverlayService SkeletonOverlayService,
     IBlobStorageService BlobStorageService,
-    ICoachingService CoachingService
+    ICoachingService CoachingService,
+    IPlayerRepository PlayerRepository,
+    IAnalysisRequestRepository AnalysisRequestRepository,
+    IOptions<MoveNetOptions> MoveNetOptions,
+    IOptions<SwingPhaseClassifierOptions> PhaseClassifierOptions,
+    IOptions<SwingQualityModelOptions> SwingQualityOptions
 ) : ISwingAnalyzerService
 {
-    private const int SequenceLength = 90;
-
-    // Use focused feature count for improved model performance
-    private const int NumFeatures = SwingPreprocessingService.FocusedFeatureCount;
-
     public async Task AnalyzeSwingAsync(Stream videoStream, AnalysisRequest analysisRequest)
     {
         // save the stream to a temporary file
@@ -40,8 +38,10 @@ public class SwingAnalyzerService(
         }
         var metadata = VideoProcessingService.GetVideoMetadata(tempFilePath);
 
+        Player? player =
+            analysisRequest.Player ?? await PlayerRepository.GetByIdAsync(analysisRequest.PlayerId);
         // Get player's handedness for swing analysis
-        var isRightHanded = analysisRequest.Player?.Handedness != Handedness.LeftHanded;
+        var isRightHanded = player?.Handedness != Handedness.LeftHanded;
 
         using var processor = new MoveNetVideoProcessor(
             MoveNetOptions.Value.ModelPath,
@@ -58,21 +58,12 @@ public class SwingAnalyzerService(
         var swingResults = new List<SwingQualityResult>();
         var qualityOptions = SwingQualityOptions.Value;
 
-        using var qualityService = new SwingQualityInferenceService(
-            qualityOptions.ModelPath,
-            qualityOptions.SequenceLength,
-            qualityOptions.NumFeatures
-        );
+        using var qualityService = new SwingQualityInferenceService(qualityOptions.ModelPath);
 
         foreach (var swing in swingVideo.Swings)
         {
-            var preprocessed = await SwingPreprocessingService.PreprocessSwingAsync(
-                swing,
-                SequenceLength,
-                NumFeatures
-            );
-
-            var result = qualityService.RunInference(preprocessed);
+            // Pass SwingData directly - no preprocessing needed
+            var result = qualityService.RunInference(swing);
             swingResults.Add(result);
         }
 
@@ -97,7 +88,7 @@ public class SwingAnalyzerService(
         );
 
         // Generate coaching tips using AI coaching service
-        var ustaRating = analysisRequest.Player?.UstaRating ?? 3.0; // Default to intermediate
+        var ustaRating = player?.UstaRating ?? 3.0; // Default to intermediate
         var coachingTips = await CoachingService.GenerateCoachingTipsAsync(
             analysisRequest.StrokeType,
             bestResult.QualityScore,
@@ -117,6 +108,7 @@ public class SwingAnalyzerService(
         );
 
         analysisRequest.Status = AnalysisStatus.Completed;
+        await AnalysisRequestRepository.UpdateAsync(analysisRequest, analysisRequest.CreatedByAppUserId);
     }
 
     /// <summary>

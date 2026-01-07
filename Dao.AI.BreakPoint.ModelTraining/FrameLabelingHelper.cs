@@ -1,6 +1,6 @@
+using System.Text.Json;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
-using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
@@ -115,10 +115,7 @@ public class FrameLabelingHelper
                         $"{videoName}_frame_{frameIndex:D5}.json"
                     );
 
-                    var json = JsonSerializer.Serialize(
-                        frameData,
-                        _jsonOptions
-                    );
+                    var json = JsonSerializer.Serialize(frameData, _jsonOptions);
 
                     await File.WriteAllTextAsync(outputPath, json);
                 }
@@ -126,7 +123,6 @@ public class FrameLabelingHelper
                 // Update crop region
                 cropRegion = GetCropRegion(keypoints, metadata);
             }
-
         }
 
         Console.WriteLine(

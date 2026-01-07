@@ -24,4 +24,22 @@
     <ProjectReference Include="..\Dao.AI.BreakPoint.Services\Dao.AI.BreakPoint.Services.csproj" />
   </ItemGroup>
 
+  <!-- Include ONNX models as content files for deployment -->
+  <ItemGroup>
+    <Content Include="..\Dao.AI.BreakPoint.Models\*.onnx" Link="models\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Ensure local.settings.json is copied to output -->
+  <ItemGroup>
+    <None Update="local.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+    <None Update="host.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

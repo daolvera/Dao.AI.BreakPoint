@@ -11,6 +11,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
 
+// Add Azure Key Vault secrets as configuration provider (Aspire extension)
+builder.Configuration.AddAzureKeyVaultSecrets("keyvault");
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(
@@ -35,21 +38,11 @@ builder.Services.AddControllers();
 builder.Services.AddBreakPointServices();
 builder.Services.AddBreakPointIdentityServices();
 builder.Services.AddAnalysisServices();
+builder.Services.AddAzureOpenAIServices(builder.Configuration);
 
 // Configure Azure Blob Storage using Aspire extension
 builder.AddAzureBlobServiceClient("BlobStorage");
 builder.Services.AddAspirerBlobStorage();
-
-// Add coaching service - uses Azure OpenAI if configured, otherwise static tips
-var azureOpenAISection = builder.Configuration.GetSection("AzureOpenAI");
-if (azureOpenAISection.Exists() && !string.IsNullOrEmpty(azureOpenAISection["Endpoint"]))
-{
-    builder.Services.AddCoachingService(options => azureOpenAISection.Bind(options));
-}
-else
-{
-    builder.Services.AddCoachingService(); // Falls back to static tips
-}
 
 // Add SignalR
 builder.Services.AddSignalR();

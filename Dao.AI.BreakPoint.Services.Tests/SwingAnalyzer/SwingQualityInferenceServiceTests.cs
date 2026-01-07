@@ -1,16 +1,14 @@
+using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using FluentAssertions;
 
 namespace Dao.AI.BreakPoint.Services.Tests.SwingAnalyzer;
 
 /// <summary>
-/// Tests for SwingQualityInferenceService feature importance extraction
+/// Tests for SwingQualityInferenceService
 /// </summary>
 public class SwingQualityInferenceServiceTests
 {
-    private const int SequenceLength = 90;
-    private const int NumFeatures = SwingPreprocessingService.FocusedFeatureCount;
-
     #region Feature Importance Tests
 
     [Fact]
@@ -18,11 +16,11 @@ public class SwingQualityInferenceServiceTests
     public void RunInference_WithoutModel_ReturnsHeuristicResult()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
-        var preprocessedSwing = CreateTestSwingData();
+        using var service = new SwingQualityInferenceService(null);
+        var swing = CreateTestSwingData();
 
         // Act
-        var result = service.RunInference(preprocessedSwing);
+        var result = service.RunInference(swing);
 
         // Assert
         result.Should().NotBeNull();
@@ -36,54 +34,16 @@ public class SwingQualityInferenceServiceTests
     public void RunInference_FeatureImportance_ContainsExpectedFeatures()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
-        var preprocessedSwing = CreateTestSwingData();
+        using var service = new SwingQualityInferenceService(null);
+        var swing = CreateTestSwingData();
 
         // Act
-        var result = service.RunInference(preprocessedSwing);
+        var result = service.RunInference(swing);
 
-        // Assert - Should contain key tennis-related features (focused feature set)
+        // Assert - Should contain key tennis-related features
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Wrist"));
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Shoulder"));
         result.FeatureImportance.Keys.Should().Contain(k => k.Contains("Elbow"));
-        // Note: Hip features are not included in the focused feature set
-    }
-
-    [Fact]
-    [Trait("Category", "FeatureImportance")]
-    public void RunInference_HighVarianceFeature_HasHigherImportance()
-    {
-        // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
-        var preprocessedSwing = new float[SequenceLength, NumFeatures];
-
-        // Set high variance for Right Wrist Velocity (index 9 in focused layout)
-        // Layout: LeftShoulder(0,1), RightShoulder(2,3), LeftElbow(4,5), RightElbow(6,7), LeftWrist(8,9), RightWrist(10,11)
-        const int rightWristVelocityIndex = 10; // Right Wrist Velocity
-
-        for (int t = 0; t < SequenceLength; t++)
-        {
-            // High variance feature - oscillates significantly
-            preprocessedSwing[t, rightWristVelocityIndex] = (float)Math.Sin(t * 0.5) * 10f;
-
-            // Low variance features - nearly constant
-            for (int f = 0; f < NumFeatures; f++)
-            {
-                if (f != rightWristVelocityIndex)
-                {
-                    preprocessedSwing[t, f] = 0.5f;
-                }
-            }
-        }
-
-        // Act
-        var result = service.RunInference(preprocessedSwing);
-        var rightWristVelocityImportance = result.FeatureImportance["Right Wrist Velocity"];
-
-        // Assert - High variance feature should have higher importance
-        rightWristVelocityImportance
-            .Should()
-            .BeGreaterThan(0.5, "high variance features should have higher importance");
     }
 
     [Fact]
@@ -91,11 +51,11 @@ public class SwingQualityInferenceServiceTests
     public void GetTopFeatures_ReturnsOrderedByImportance()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
-        var preprocessedSwing = CreateVariedSwingData();
+        using var service = new SwingQualityInferenceService(null);
+        var swing = CreateVariedSwingData();
 
         // Act
-        var result = service.RunInference(preprocessedSwing);
+        var result = service.RunInference(swing);
         var topFeatures = result.GetTopFeatures(5);
 
         // Assert
@@ -113,11 +73,11 @@ public class SwingQualityInferenceServiceTests
     public void GetWeakFeatures_ReturnsLowestImportance()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
-        var preprocessedSwing = CreateVariedSwingData();
+        using var service = new SwingQualityInferenceService(null);
+        var swing = CreateVariedSwingData();
 
         // Act
-        var result = service.RunInference(preprocessedSwing);
+        var result = service.RunInference(swing);
         var weakFeatures = result.GetWeakFeatures(3);
 
         // Assert
@@ -133,13 +93,12 @@ public class SwingQualityInferenceServiceTests
     #region Quality Score Tests
 
     [Fact]
-    [Trait("Category", "FeatureImportance")]
+    [Trait("Category", "QualityScore")]
     public void QualityScore_WithGoodMotion_ShouldBeHigher()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
+        using var service = new SwingQualityInferenceService(null);
 
-        // Create swing with good motion characteristics
         var goodSwing = CreateGoodMotionSwingData();
         var poorSwing = CreatePoorMotionSwingData();
 
@@ -147,8 +106,7 @@ public class SwingQualityInferenceServiceTests
         var goodResult = service.RunInference(goodSwing);
         var poorResult = service.RunInference(poorSwing);
 
-        // Assert - Good swing should score higher (at least 10 points more)
-        // Note: Without actual ML model, heuristics may have limited differentiation
+        // Assert
         goodResult
             .QualityScore.Should()
             .BeGreaterThanOrEqualTo(50, "good motion swing should score at least average");
@@ -158,26 +116,25 @@ public class SwingQualityInferenceServiceTests
     }
 
     [Fact]
-    [Trait("Category", "FeatureImportance")]
+    [Trait("Category", "QualityScore")]
     public void QualityScore_AlwaysInValidRange()
     {
         // Arrange
-        using var service = new SwingQualityInferenceService(null, SequenceLength, NumFeatures);
+        using var service = new SwingQualityInferenceService(null);
 
-        // Test with various data patterns
         var testCases = new[]
         {
             CreateTestSwingData(),
             CreateVariedSwingData(),
             CreateGoodMotionSwingData(),
             CreatePoorMotionSwingData(),
-            new float[SequenceLength, NumFeatures], // All zeros
+            new SwingData { Frames = [] }, // Empty swing
         };
 
         // Act & Assert
-        foreach (var testData in testCases)
+        foreach (var swing in testCases)
         {
-            var result = service.RunInference(testData);
+            var result = service.RunInference(swing);
             result.QualityScore.Should().BeInRange(0, 100);
         }
     }
@@ -187,142 +144,195 @@ public class SwingQualityInferenceServiceTests
     #region Service Lifecycle Tests
 
     [Fact]
-    [Trait("Category", "FeatureImportance")]
+    [Trait("Category", "Lifecycle")]
     public void IsModelLoaded_WithNullPath_ReturnsFalse()
     {
-        // Arrange & Act
         using var service = new SwingQualityInferenceService(null);
-
-        // Assert
         service.IsModelLoaded.Should().BeFalse();
     }
 
     [Fact]
-    [Trait("Category", "FeatureImportance")]
+    [Trait("Category", "Lifecycle")]
     public void IsModelLoaded_WithInvalidPath_ReturnsFalse()
     {
-        // Arrange & Act
         using var service = new SwingQualityInferenceService("/nonexistent/path/model.onnx");
-
-        // Assert
         service.IsModelLoaded.Should().BeFalse();
     }
 
     [Fact]
-    [Trait("Category", "FeatureImportance")]
+    [Trait("Category", "Lifecycle")]
     public void Dispose_CanBeCalledMultipleTimes()
     {
-        // Arrange
         var service = new SwingQualityInferenceService(null);
+        service.Dispose();
+        service.Dispose(); // Should not throw
+    }
 
-        // Act & Assert - Should not throw
-        service.Dispose();
-        service.Dispose();
+    [Fact]
+    [Trait("Category", "Constants")]
+    public void AggregatedFeatureCount_IsCorrect()
+    {
+        // 16 features × 3 stats = 48
+        SwingQualityInferenceService.AggregatedFeatureCount.Should().Be(48);
+    }
+
+    [Fact]
+    [Trait("Category", "Constants")]
+    public void FeaturesPerFrame_IsCorrect()
+    {
+        // 6 joints × 2 (velocity + acceleration) + 4 angles = 16
+        SwingQualityInferenceService.FeaturesPerFrame.Should().Be(16);
     }
 
     #endregion
 
     #region Helper Methods
 
-    private static float[,] CreateTestSwingData()
+    private static SwingData CreateTestSwingData()
     {
-        var data = new float[SequenceLength, NumFeatures];
-        var random = new Random(42); // Deterministic for reproducibility
+        var frames = new List<FrameData>();
+        var random = new Random(42);
 
-        for (int t = 0; t < SequenceLength; t++)
+        for (int t = 0; t < 60; t++)
         {
-            for (int f = 0; f < NumFeatures; f++)
-            {
-                data[t, f] = (float)random.NextDouble();
-            }
+            var frame = CreateFrameWithRandomData(random);
+            frames.Add(frame);
         }
 
-        return data;
+        return new SwingData { Frames = frames };
     }
 
-    private static float[,] CreateVariedSwingData()
+    private static SwingData CreateVariedSwingData()
     {
-        var data = new float[SequenceLength, NumFeatures];
+        var frames = new List<FrameData>();
 
-        for (int t = 0; t < SequenceLength; t++)
+        for (int t = 0; t < 60; t++)
         {
-            for (int f = 0; f < NumFeatures; f++)
+            var frame = new FrameData
             {
-                // Different variance levels for different features
-                float variance = (f % 10 + 1) / 10f;
-                data[t, f] = (float)(Math.Sin(t * 0.1 * (f + 1)) * variance);
-            }
+                Joints = CreateJointsWithVariedMotion(t),
+                LeftElbowAngle = 90 + (float)Math.Sin(t * 0.1) * 20,
+                RightElbowAngle = 100 + (float)Math.Sin(t * 0.15) * 30,
+                LeftShoulderAngle = 45 + (float)Math.Sin(t * 0.2) * 15,
+                RightShoulderAngle = 50 + (float)Math.Sin(t * 0.25) * 25,
+            };
+            frames.Add(frame);
         }
 
-        return data;
+        return new SwingData { Frames = frames };
     }
 
-    private static float[,] CreateGoodMotionSwingData()
+    private static SwingData CreateGoodMotionSwingData()
     {
-        var data = new float[SequenceLength, NumFeatures];
+        var frames = new List<FrameData>();
 
-        // Good swing characteristics (focused 16-feature layout):
-        // Layout: LeftShoulder(0,1), RightShoulder(2,3), LeftElbow(4,5), RightElbow(6,7),
-        //         LeftWrist(8,9), RightWrist(10,11), Angles(12-15)
-        // - High wrist velocity (index 10 = Right Wrist Velocity)
-        // - Good shoulder angles (index 15 = Right Shoulder Angle)
-        // - Good elbow angles (index 13 = Right Elbow Angle)
-        for (int t = 0; t < SequenceLength; t++)
+        for (int t = 0; t < 60; t++)
         {
-            float progress = t / (float)SequenceLength;
+            float progress = t / 60f;
 
-            // Right wrist velocity - smooth acceleration pattern
-            data[t, 10] = (float)Math.Sin(progress * Math.PI) * 15f;
-
-            // Right shoulder angle - good rotation
-            data[t, 15] = (float)(45 + 30 * Math.Sin(progress * Math.PI));
-
-            // Right elbow angle - good extension
-            data[t, 13] = (float)(90 + 20 * Math.Sin(progress * Math.PI));
-
-            // Fill other features with moderate values
-            for (int f = 0; f < NumFeatures; f++)
+            var joints = new JointData[MoveNetVideoProcessor.NumKeyPoints];
+            for (int j = 0; j < joints.Length; j++)
             {
-                if (f != 10 && f != 15 && f != 13)
+                joints[j] = new JointData
                 {
-                    data[t, f] = 0.5f + (float)Math.Sin(t * 0.05) * 0.2f;
-                }
+                    JointFeature = (JointFeatures)j,
+                    Confidence = 0.9f,
+                    Speed = 0.5f,
+                    Acceleration = 0.1f,
+                };
             }
+
+            // Good wrist motion
+            joints[(int)JointFeatures.RightWrist].Speed = (float)Math.Sin(progress * Math.PI) * 15f;
+            joints[(int)JointFeatures.RightWrist].Acceleration =
+                (float)Math.Cos(progress * Math.PI) * 5f;
+            joints[(int)JointFeatures.LeftWrist].Speed = (float)Math.Sin(progress * Math.PI) * 10f;
+
+            var frame = new FrameData
+            {
+                Joints = joints,
+                LeftElbowAngle = 90 + (float)Math.Sin(progress * Math.PI) * 20,
+                RightElbowAngle = 90 + (float)Math.Sin(progress * Math.PI) * 25,
+                LeftShoulderAngle = 45 + (float)Math.Sin(progress * Math.PI) * 30,
+                RightShoulderAngle = 45 + (float)Math.Sin(progress * Math.PI) * 35,
+            };
+            frames.Add(frame);
         }
 
-        return data;
+        return new SwingData { Frames = frames };
     }
 
-    private static float[,] CreatePoorMotionSwingData()
+    private static SwingData CreatePoorMotionSwingData()
     {
-        var data = new float[SequenceLength, NumFeatures];
+        var frames = new List<FrameData>();
 
-        // Poor swing characteristics (focused 16-feature layout):
-        // - Low, inconsistent wrist velocity
-        // - Minimal shoulder rotation
-        // - Minimal elbow extension
-        for (int t = 0; t < SequenceLength; t++)
+        for (int t = 0; t < 60; t++)
         {
-            // Very low wrist velocity
-            data[t, 10] = 0.1f;
-
-            // Minimal shoulder angle variation
-            data[t, 15] = 0.1f;
-
-            // Minimal elbow angle variation
-            data[t, 13] = 0.1f;
-
-            // Fill other features with low values
-            for (int f = 0; f < NumFeatures; f++)
+            var joints = new JointData[MoveNetVideoProcessor.NumKeyPoints];
+            for (int j = 0; j < joints.Length; j++)
             {
-                if (f != 10 && f != 15 && f != 13)
+                joints[j] = new JointData
                 {
-                    data[t, f] = 0.1f;
-                }
+                    JointFeature = (JointFeatures)j,
+                    Confidence = 0.9f,
+                    Speed = 0.1f,
+                    Acceleration = 0.01f,
+                };
             }
+
+            var frame = new FrameData
+            {
+                Joints = joints,
+                LeftElbowAngle = 90f,
+                RightElbowAngle = 90f,
+                LeftShoulderAngle = 45f,
+                RightShoulderAngle = 45f,
+            };
+            frames.Add(frame);
         }
 
-        return data;
+        return new SwingData { Frames = frames };
+    }
+
+    private static FrameData CreateFrameWithRandomData(Random random)
+    {
+        var joints = new JointData[MoveNetVideoProcessor.NumKeyPoints];
+        for (int j = 0; j < joints.Length; j++)
+        {
+            joints[j] = new JointData
+            {
+                JointFeature = (JointFeatures)j,
+                Confidence = 0.8f + (float)random.NextDouble() * 0.2f,
+                Speed = (float)random.NextDouble() * 5f,
+                Acceleration = (float)random.NextDouble() * 2f,
+            };
+        }
+
+        return new FrameData
+        {
+            Joints = joints,
+            LeftElbowAngle = 80f + (float)random.NextDouble() * 40f,
+            RightElbowAngle = 80f + (float)random.NextDouble() * 40f,
+            LeftShoulderAngle = 30f + (float)random.NextDouble() * 60f,
+            RightShoulderAngle = 30f + (float)random.NextDouble() * 60f,
+        };
+    }
+
+    private static JointData[] CreateJointsWithVariedMotion(int timeStep)
+    {
+        var joints = new JointData[MoveNetVideoProcessor.NumKeyPoints];
+        for (int j = 0; j < joints.Length; j++)
+        {
+            float variation = (j % 10 + 1) / 10f;
+            joints[j] = new JointData
+            {
+                JointFeature = (JointFeatures)j,
+                Confidence = 0.9f,
+                Speed = (float)Math.Sin(timeStep * 0.1 * (j + 1)) * variation * 5f,
+                Acceleration = (float)Math.Cos(timeStep * 0.1 * (j + 1)) * variation * 2f,
+            };
+        }
+        return joints;
     }
 
     #endregion

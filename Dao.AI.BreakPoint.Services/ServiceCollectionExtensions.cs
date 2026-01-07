@@ -2,6 +2,7 @@
 using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dao.AI.BreakPoint.Services;
@@ -28,44 +29,81 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnalysisProcessingService, AnalysisProcessingService>();
         services.AddScoped<IAnalysisRequestRepository, AnalysisRequestRepository>();
         services.AddScoped<IAnalysisResultRepository, AnalysisResultRepository>();
+        services.AddScoped<ICoachingService, CoachingService>();
         return services;
     }
 
     public static IServiceCollection AddSwingAnalyzerServices(
         this IServiceCollection services,
-        Action<SwingQualityModelOptions>? configure = null
+        IConfiguration configuration
     )
     {
-        if (configure is not null)
+        // Configure MoveNet options and resolve relative paths
+        services.Configure<MoveNetOptions>(configuration.GetSection(MoveNetOptions.SectionName));
+        services.PostConfigure<MoveNetOptions>(options =>
         {
-            services.Configure(configure);
-        }
-        else
+            options.ModelPath = ResolveModelPath(options.ModelPath);
+        });
+
+        // Configure SwingPhaseClassifier options and resolve relative paths
+        services.Configure<SwingPhaseClassifierOptions>(
+            configuration.GetSection(SwingPhaseClassifierOptions.SectionName)
+        );
+        services.PostConfigure<SwingPhaseClassifierOptions>(options =>
         {
-            services.Configure<SwingQualityModelOptions>(_ => { });
-        }
+            options.ModelPath = ResolveModelPath(options.ModelPath);
+        });
+
+        // Configure SwingQualityModel options and resolve relative paths
+        services.Configure<SwingQualityModelOptions>(
+            configuration.GetSection(SwingQualityModelOptions.SectionName)
+        );
+        services.PostConfigure<SwingQualityModelOptions>(options =>
+        {
+            if (!string.IsNullOrEmpty(options.ModelPath))
+            {
+                options.ModelPath = ResolveModelPath(options.ModelPath);
+            }
+        });
 
         services.AddSingleton<ISkeletonOverlayService, SkeletonOverlayService>();
         services.AddScoped<ISwingAnalyzerService, SwingAnalyzerService>();
         return services;
     }
 
-    public static IServiceCollection AddBlobStorage(
+    /// <summary>
+    /// Resolves a model path relative to the application's base directory.
+    /// If the path is already absolute, returns it unchanged.
+    /// </summary>
+    private static string ResolveModelPath(string modelPath)
+    {
+        if (string.IsNullOrEmpty(modelPath))
+        {
+            return modelPath;
+        }
+
+        // If already absolute, return as-is
+        if (Path.IsPathRooted(modelPath))
+        {
+            return modelPath;
+        }
+
+        // Resolve relative to the application's base directory
+        var basePath = AppContext.BaseDirectory;
+        return Path.Combine(basePath, modelPath);
+    }
+
+    /// <summary>
+    /// Registers Azure OpenAI services for coaching functionality.
+    /// </summary>
+    public static IServiceCollection AddAzureOpenAIServices(
         this IServiceCollection services,
-        Action<BlobStorageOptions>? configure = null
+        IConfiguration configuration
     )
     {
-        if (configure is not null)
-        {
-            services.Configure(configure);
-        }
-        else
-        {
-            services.Configure<BlobStorageOptions>(_ => { });
-        }
-
-        services.AddScoped<IBlobStorageService, AzureBlobStorageService>();
-
+        services.Configure<AzureOpenAIOptions>(
+            configuration.GetSection(AzureOpenAIOptions.SectionName)
+        );
         return services;
     }
 
@@ -81,29 +119,6 @@ public static class ServiceCollectionExtensions
             var blobServiceClient = sp.GetRequiredService<BlobServiceClient>();
             return new AzureBlobStorageService(blobServiceClient);
         });
-        return services;
-    }
-
-    /// <summary>
-    /// Add coaching service with Azure OpenAI integration
-    /// Falls back to static tips if Azure OpenAI is not configured
-    /// </summary>
-    public static IServiceCollection AddCoachingService(
-        this IServiceCollection services,
-        Action<AzureOpenAIOptions>? configure = null
-    )
-    {
-        if (configure is not null)
-        {
-            services.Configure(configure);
-            services.AddScoped<ICoachingService, CoachingService>();
-        }
-        else
-        {
-            // Use static coaching service as fallback
-            services.AddScoped<ICoachingService, StaticCoachingService>();
-        }
-
         return services;
     }
 }

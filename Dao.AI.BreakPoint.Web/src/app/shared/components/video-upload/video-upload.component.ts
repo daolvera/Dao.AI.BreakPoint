@@ -1,11 +1,13 @@
-import { Component, inject, input, signal, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { VideoUploadService } from '../../../core/services/video-upload.service';
+import { AnalysisRequestDto } from '../../../core/models/dtos/analysis.dto';
+import { SwingType } from '../../../core/models/enums/swing-type.enum';
+import { AnalysisService } from '../../../core/services/analysis.service';
 import { ToastService } from '../../../core/services/toast.service';
-import { VideoUploadResult } from '../../../core/models/dtos';
+import { VideoUploadService } from '../../../core/services/video-upload.service';
 
 @Component({
   selector: 'app-video-upload',
@@ -87,12 +89,14 @@ import { VideoUploadResult } from '../../../core/models/dtos';
 })
 export class VideoUploadComponent {
   // Inputs
-  playerId = input.required<number>();
+  public playerId = input.required<number>();
+  public strokeType = input.required<SwingType>();
 
   // Outputs
-  videoUploaded = output<VideoUploadResult>();
+  public videoUploaded = output<AnalysisRequestDto>();
 
   // Services
+  private analysisService = inject(AnalysisService);
   private videoUploadService = inject(VideoUploadService);
   private toastService = inject(ToastService);
 
@@ -100,7 +104,7 @@ export class VideoUploadComponent {
   protected selectedFile = signal<File | null>(null);
   protected isUploading = signal(false);
   protected isDragOver = signal(false);
-  protected uploadedVideo = signal<VideoUploadResult | null>(null);
+  protected uploadedVideo = signal<AnalysisRequestDto | null>(null);
 
   protected onDragOver(event: DragEvent): void {
     event.preventDefault();
@@ -145,28 +149,26 @@ export class VideoUploadComponent {
 
     this.isUploading.set(true);
 
-    try {
-      this.videoUploadService
-        .uploadPlayerVideo(this.playerId(), file)
-        .subscribe({
-          next: (result: VideoUploadResult) => {
-            if (result.success) {
-              this.uploadedVideo.set(result);
-              this.videoUploaded.emit(result);
-              this.toastService.success('Video uploaded successfully!');
-            }
-          },
-          error: (error: any) => {
-            console.error('Upload error:', error);
-          },
-          complete: () => {
-            this.isUploading.set(false);
-          },
-        });
-    } catch (error) {
-      this.isUploading.set(false);
-      this.toastService.error('An error occurred during upload');
-    }
+    this.analysisService
+      .uploadVideo(file, this.playerId(), this.strokeType())
+      .subscribe({
+        next: (result: AnalysisRequestDto) => {
+          this.uploadedVideo.set(result);
+          this.videoUploaded.emit(result);
+          this.toastService.success(
+            'Video uploaded successfully! Analysis started.'
+          );
+        },
+        error: (error: any) => {
+          this.isUploading.set(false);
+          this.toastService.error(
+            error?.message || 'An error occurred during upload'
+          );
+        },
+        complete: () => {
+          this.isUploading.set(false);
+        },
+      });
   }
 
   protected clearSelection(): void {

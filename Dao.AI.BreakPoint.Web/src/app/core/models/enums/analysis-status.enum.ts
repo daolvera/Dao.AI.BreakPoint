@@ -1,6 +1,6 @@
 export enum AnalysisStatus {
-  Requested,
-  InProgress,
-  Completed,
-  Failed,
+  Requested = 'Requested',
+  InProgress = 'InProgress',
+  Completed = 'Completed',
+  Failed = 'Failed',
 }

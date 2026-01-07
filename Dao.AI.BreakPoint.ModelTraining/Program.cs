@@ -115,7 +115,9 @@ internal class Program
             var modelPath = await trainingService.TrainAsync(processedSwingVideos, options);
 
             Console.WriteLine($"Training completed! Model saved at: {modelPath}");
-            Console.WriteLine($"Trained on {processedSwingVideos.Count} videos");
+            Console.WriteLine(
+                $"Trained on {processedSwingVideos.Sum(o => o.SwingVideo.Swings.Count)} Swings"
+            );
         }
         catch (Exception ex)
         {

@@ -38,7 +38,7 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
     private readonly SwingPhaseClassifierService _phaseClassifier = new(phaseClassifierModelPath);
     private const float MinCropKeypointScore = 0.2f;
     private const float MinPhaseConfidence = 0.6f;
-    public static readonly int MinSwingFrames = 15;
+    public static readonly int MinSwingFrames = 7;
 
     public ProcessedSwingVideo ProcessVideoFrames(
         List<byte[]> frameImages,

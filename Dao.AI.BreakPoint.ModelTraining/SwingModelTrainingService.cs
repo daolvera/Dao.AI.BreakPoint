@@ -6,11 +6,24 @@ namespace Dao.AI.BreakPoint.ModelTraining;
 
 /// <summary>
 /// Service for training the swing quality analyzer model using ML.NET.
-/// Handles data preprocessing, training, and ONNX model export.
+/// Uses the same feature extraction as SwingQualityInferenceService for consistency.
 /// </summary>
 internal class SwingModelTrainingService
 {
     private readonly MLContext _mlContext;
+
+    /// <summary>
+    /// Key joints for tennis swing analysis (same as inference service).
+    /// </summary>
+    private static readonly JointFeatures[] KeyJoints =
+    [
+        JointFeatures.LeftShoulder,
+        JointFeatures.RightShoulder,
+        JointFeatures.LeftElbow,
+        JointFeatures.RightElbow,
+        JointFeatures.LeftWrist,
+        JointFeatures.RightWrist,
+    ];
 
     public SwingModelTrainingService()
     {
@@ -25,15 +38,14 @@ internal class SwingModelTrainingService
         TrainingConfiguration config
     )
     {
-        // Validate input parameters
         ValidateTrainingInputs(processedSwingVideos, config);
 
         Console.WriteLine("Starting data preprocessing...");
-        var trainingData = await PreprocessTrainingDataAsync(processedSwingVideos, config);
+        var trainingData = PreprocessTrainingData(processedSwingVideos);
 
         Console.WriteLine($"Preprocessed {trainingData.Count} training samples");
         Console.WriteLine(
-            $"Feature count: {config.NumFeatures * 3} aggregated features (mean, std, range) → quality score"
+            $"Feature count: {SwingQualityInferenceService.AggregatedFeatureCount} aggregated features (mean, std, range) → quality score"
         );
 
         // Load data into ML.NET DataView
@@ -48,13 +60,8 @@ internal class SwingModelTrainingService
         Console.WriteLine("Building ML.NET training pipeline...");
 
         // Build the training pipeline for regression
-        // Using simplified model architecture for small datasets
         var pipeline = _mlContext
-            .Transforms
-            // Normalize features
-            .NormalizeMinMax("Features")
-            // Train regression model using FastTree with reduced complexity
-            // Fewer trees and leaves prevent overfitting with limited training data
+            .Transforms.NormalizeMinMax("Features")
             .Append(
                 _mlContext.Regression.Trainers.FastTree(
                     labelColumnName: "QualityScore",
@@ -67,7 +74,6 @@ internal class SwingModelTrainingService
             );
 
         Console.WriteLine("Training swing quality model...");
-        Console.WriteLine($"Using FastTree regression with {config.Epochs} trees");
 
         // Train the model
         var model = pipeline.Fit(splitData.TrainSet);
@@ -108,7 +114,6 @@ internal class SwingModelTrainingService
 
         ArgumentNullException.ThrowIfNull(config);
 
-        // Validate video data
         var totalSwings = 0;
         var validVideos = 0;
 
@@ -142,7 +147,6 @@ internal class SwingModelTrainingService
                     continue;
                 }
 
-                // Check if swing has reasonable number of frames (at least 1 second)
                 if (swing.Frames.Count < MoveNetVideoProcessor.MinSwingFrames)
                 {
                     Console.WriteLine(
@@ -164,9 +168,8 @@ internal class SwingModelTrainingService
         Console.WriteLine($"Validation passed: {validVideos} videos, {totalSwings} total swings");
     }
 
-    private static async Task<List<SwingQualityInput>> PreprocessTrainingDataAsync(
-        List<TrainingSwingVideo> processedSwingVideos,
-        TrainingConfiguration config
+    private static List<SwingQualityInput> PreprocessTrainingData(
+        List<TrainingSwingVideo> processedSwingVideos
     )
     {
         var trainingData = new List<SwingQualityInput>();
@@ -177,11 +180,7 @@ internal class SwingModelTrainingService
             {
                 try
                 {
-                    var features = await AggregateSequenceFeaturesAsync(
-                        swing,
-                        config.SequenceLength,
-                        config.NumFeatures
-                    );
+                    var features = AggregateFeatures(swing);
 
                     if (features != null)
                     {
@@ -196,7 +195,6 @@ internal class SwingModelTrainingService
                 }
                 catch
                 {
-                    // Skip problematic swings
                     continue;
                 }
             }
@@ -213,75 +211,85 @@ internal class SwingModelTrainingService
     }
 
     /// <summary>
-    /// Aggregate sequence features into a fixed-size vector using statistics.
-    /// Since ML.NET doesn't support variable-length sequences like CNNs,
-    /// we compute mean, std, and range for each feature across time.
-    /// Reduced from 5 to 3 statistics to prevent feature explosion with small datasets.
+    /// Extract raw features from a single frame.
+    /// Returns 16 features: 12 motion (6 joints × velocity + acceleration) + 4 angles.
+    /// This matches SwingQualityInferenceService.ExtractFrameFeatures exactly.
     /// </summary>
-    private static Task<float[]?> AggregateSequenceFeaturesAsync(
-        SwingData swing,
-        int targetLength,
-        int numFeatures
-    )
+    private static float[] ExtractFrameFeatures(FrameData frame)
     {
-        return Task.Run(() =>
+        var features = new float[SwingQualityInferenceService.FeaturesPerFrame];
+
+        int featureIdx = 0;
+        foreach (var joint in KeyJoints)
         {
-            if (swing.Frames == null || swing.Frames.Count == 0)
-                return null;
+            int idx = (int)joint;
+            var jointData = frame.Joints[idx];
 
-            // First, get the raw sequence
-            var rawSequence = SwingPreprocessingService
-                .PreprocessSwingAsync(swing, targetLength, numFeatures)
-                .GetAwaiter()
-                .GetResult();
+            float velocity = jointData.Confidence >= 0.2f ? (jointData.Speed ?? 0f) : 0f;
+            float acceleration = jointData.Confidence >= 0.2f ? (jointData.Acceleration ?? 0f) : 0f;
 
-            if (rawSequence == null)
-                return null;
+            features[featureIdx++] = velocity;
+            features[featureIdx++] = acceleration;
+        }
 
-            // Compute aggregated statistics for each feature
-            // 3 statistics per feature: mean, std, range (reduced from 5 to prevent overfitting)
-            var aggregatedFeatures = new float[numFeatures * 3];
+        features[featureIdx++] = frame.LeftElbowAngle;
+        features[featureIdx++] = frame.RightElbowAngle;
+        features[featureIdx++] = frame.LeftShoulderAngle;
+        features[featureIdx++] = frame.RightShoulderAngle;
 
-            for (int f = 0; f < numFeatures; f++)
+        return features;
+    }
+
+    /// <summary>
+    /// Aggregate features from all frames using statistics (mean, std, range).
+    /// This matches SwingQualityInferenceService.AggregateFeatures exactly.
+    /// </summary>
+    private static float[]? AggregateFeatures(SwingData swing)
+    {
+        if (swing.Frames == null || swing.Frames.Count == 0)
+            return null;
+
+        var frameFeatures = new List<float[]>();
+        foreach (var frame in swing.Frames)
+        {
+            frameFeatures.Add(ExtractFrameFeatures(frame));
+        }
+
+        var aggregated = new float[SwingQualityInferenceService.AggregatedFeatureCount];
+
+        for (int f = 0; f < SwingQualityInferenceService.FeaturesPerFrame; f++)
+        {
+            var values = new List<float>();
+            foreach (var features in frameFeatures)
             {
-                var values = new List<float>();
-                for (int t = 0; t < targetLength; t++)
+                float val = features[f];
+                if (!float.IsNaN(val) && !float.IsInfinity(val))
                 {
-                    var val = rawSequence[t, f];
-                    // Skip NaN values for cleaner statistics
-                    if (!float.IsNaN(val) && !float.IsInfinity(val))
-                    {
-                        values.Add(val);
-                    }
+                    values.Add(val);
                 }
-
-                int baseIdx = f * 3;
-
-                // Handle empty or all-NaN case
-                if (values.Count == 0)
-                {
-                    aggregatedFeatures[baseIdx + 0] = 0f; // mean
-                    aggregatedFeatures[baseIdx + 1] = 0f; // std
-                    aggregatedFeatures[baseIdx + 2] = 0f; // range
-                    continue;
-                }
-
-                // Calculate statistics
-                float mean = values.Average();
-                float variance = values.Sum(v => (v - mean) * (v - mean)) / values.Count;
-                float std = MathF.Sqrt(variance);
-                float min = values.Min();
-                float max = values.Max();
-                float range = max - min;
-
-                // Store in aggregated vector
-                aggregatedFeatures[baseIdx + 0] = SanitizeFloat(mean);
-                aggregatedFeatures[baseIdx + 1] = SanitizeFloat(std);
-                aggregatedFeatures[baseIdx + 2] = SanitizeFloat(range);
             }
 
-            return aggregatedFeatures;
-        });
+            int baseIdx = f * 3;
+
+            if (values.Count == 0)
+            {
+                aggregated[baseIdx + 0] = 0f;
+                aggregated[baseIdx + 1] = 0f;
+                aggregated[baseIdx + 2] = 0f;
+                continue;
+            }
+
+            float mean = values.Average();
+            float variance = values.Sum(v => (v - mean) * (v - mean)) / values.Count;
+            float std = MathF.Sqrt(variance);
+            float range = values.Max() - values.Min();
+
+            aggregated[baseIdx + 0] = SanitizeFloat(mean);
+            aggregated[baseIdx + 1] = SanitizeFloat(std);
+            aggregated[baseIdx + 2] = SanitizeFloat(range);
+        }
+
+        return aggregated;
     }
 
     private static float SanitizeFloat(float value)
