@@ -27,16 +27,40 @@ public class AnalysisResult : UpdatableModel
     public SwingType StrokeType { get; set; }
 
     /// <summary>
-    /// Quality score from the ML model (0-100)
+    /// Overall quality score from the ML model (0-100)
+    /// Computed as weighted average of phase scores
     /// </summary>
     [Range(0, 100)]
     public double QualityScore { get; set; }
 
     /// <summary>
-    /// JSON string containing feature importance from attention weights
-    /// Maps feature names to importance scores
+    /// Quality score for the Preparation phase (0-100)
     /// </summary>
-    public string FeatureImportanceJson { get; set; } = "{}";
+    [Range(0, 100)]
+    public int PrepScore { get; set; }
+
+    /// <summary>
+    /// Quality score for the Backswing phase (0-100)
+    /// </summary>
+    [Range(0, 100)]
+    public int BackswingScore { get; set; }
+
+    /// <summary>
+    /// Quality score for the Contact phase (0-100)
+    /// </summary>
+    [Range(0, 100)]
+    public int ContactScore { get; set; }
+
+    /// <summary>
+    /// Quality score for the Follow-Through phase (0-100)
+    /// </summary>
+    [Range(0, 100)]
+    public int FollowThroughScore { get; set; }
+
+    /// <summary>
+    /// Phase-specific deviations from reference profiles
+    /// </summary>
+    public ICollection<PhaseDeviation> PhaseDeviations { get; set; } = [];
 
     /// <summary>
     /// JSON string containing coaching tips from the LLM
@@ -59,4 +83,9 @@ public class AnalysisResult : UpdatableModel
     /// URL to the original video in blob storage
     /// </summary>
     public string? VideoBlobUrl { get; set; }
+
+    /// <summary>
+    /// Drill recommendations generated for this analysis
+    /// </summary>
+    public ICollection<DrillRecommendation> DrillRecommendations { get; set; } = [];
 }

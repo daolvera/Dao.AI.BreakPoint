@@ -277,7 +277,7 @@ public class SwingPhaseClassifierService : IDisposable
             0 => SwingPhase.None,
             1 => SwingPhase.Preparation,
             2 => SwingPhase.Backswing,
-            3 => SwingPhase.Swing,
+            3 => SwingPhase.Contact,
             4 => SwingPhase.FollowThrough,
             _ => SwingPhase.None,
         };

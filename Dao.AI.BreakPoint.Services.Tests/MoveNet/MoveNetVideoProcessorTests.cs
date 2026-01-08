@@ -95,12 +95,12 @@ public class MoveNetVideoProcessorTests
             );
         }
 
-        // Swing phase (5+ frames required)
+        // Contact phase (5+ frames required)
         for (int i = 0; i < 8; i++)
         {
             frames.Add(
                 CreateFrameData(
-                    SwingPhase.Swing,
+                    SwingPhase.Contact,
                     wristSpeed: 15f + i * 2f,
                     wristAccel: 8f,
                     elbowAngle: 100f + i * 5
@@ -160,7 +160,7 @@ public class MoveNetVideoProcessorTests
     public void FrameData_ShouldTrackBothArms_ForHandednessDetection()
     {
         // Arrange
-        var frame = CreateFrameData(SwingPhase.Swing);
+        var frame = CreateFrameData(SwingPhase.Contact);
 
         // Set different speeds for left and right arm
         frame.Joints[(int)JointFeatures.LeftWrist].Speed = 20f;

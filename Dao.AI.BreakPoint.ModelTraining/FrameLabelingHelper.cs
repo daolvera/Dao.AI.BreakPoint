@@ -89,14 +89,15 @@ public class FrameLabelingHelper
                 // Only sample every N frames to reduce labeling work
                 if (frameIndex % sampleEveryNFrames == 0)
                 {
-                    // Extract features for the classifier
-                    var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
-                        keypoints,
-                        angles,
-                        isRightHanded,
-                        prevFrame,
-                        prev2Frame
-                    );
+                    // Serialize joints to flat array: [x, y, confidence, speed] × 17 joints = 68 values
+                    var jointsFlat = new float[keypoints.Length * 4];
+                    for (int j = 0; j < keypoints.Length; j++)
+                    {
+                        jointsFlat[j * 4 + 0] = keypoints[j].X;
+                        jointsFlat[j * 4 + 1] = keypoints[j].Y;
+                        jointsFlat[j * 4 + 2] = keypoints[j].Confidence;
+                        jointsFlat[j * 4 + 3] = keypoints[j].Speed ?? 0f;
+                    }
 
                     // Create unlabeled frame data
                     var frameData = new UnlabeledFrameJson
@@ -105,7 +106,8 @@ public class FrameLabelingHelper
                         FrameIndex = frameIndex,
                         Timestamp = frameIndex / metadata.FrameRate,
                         IsRightHanded = isRightHanded,
-                        Features = features,
+                        Joints = jointsFlat,
+                        Angles = angles,
                         Phase = -1, // -1 indicates unlabeled, user needs to set 0-4
                     };
 
@@ -187,7 +189,7 @@ public class FrameLabelingHelper
 }
 
 /// <summary>
-/// JSON structure for unlabeled frames awaiting human labeling
+/// JSON structure for labeled/unlabeled frames (new format with raw joints)
 /// </summary>
 internal class UnlabeledFrameJson
 {
@@ -195,10 +197,36 @@ internal class UnlabeledFrameJson
     public int FrameIndex { get; set; }
     public double Timestamp { get; set; }
     public bool IsRightHanded { get; set; }
-    public required float[] Features { get; set; }
+
+    /// <summary>
+    /// Raw joint positions from MoveNet (17 joints × 4 values: x, y, confidence, speed)
+    /// </summary>
+    public required float[] Joints { get; set; }
+
+    /// <summary>
+    /// Joint angles: [leftElbow, rightElbow, leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee]
+    /// </summary>
+    public required float[] Angles { get; set; }
 
     /// <summary>
     /// Phase label: -1 = unlabeled, 0-4 = labeled phase
     /// </summary>
-    public int Phase { get; set; }
+    public int Phase { get; set; } = -1;
+}
+
+/// <summary>
+/// Minimal JSON structure for reading existing labeled files (any format).
+/// Used during re-extraction to preserve labels while ignoring old feature format.
+/// </summary>
+internal class LegacyFrameJson
+{
+    public string? VideoName { get; set; }
+    public int FrameIndex { get; set; }
+    public double Timestamp { get; set; }
+    public bool IsRightHanded { get; set; }
+
+    /// <summary>
+    /// Phase label: -1 = unlabeled, 0-4 = labeled phase
+    /// </summary>
+    public int Phase { get; set; } = -1;
 }

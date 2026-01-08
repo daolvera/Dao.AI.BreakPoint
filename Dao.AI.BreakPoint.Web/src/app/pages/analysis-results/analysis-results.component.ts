@@ -13,17 +13,29 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 
 import {
   AnalysisRequestDto,
   AnalysisResultDto,
+  DrillRecommendationDto,
+  PhaseDeviationDto,
 } from '../../core/models/dtos/analysis.dto';
 import { AnalysisStatus } from '../../core/models/enums/analysis-status.enum';
+import {
+  SwingPhase,
+  SwingPhaseLabels,
+} from '../../core/models/enums/swing-phase.enum';
 import { SwingType } from '../../core/models/enums/swing-type.enum';
 import { AnalysisService } from '../../core/services/analysis.service';
+import { DrillService } from '../../core/services/drill.service';
 import { SignalRService } from '../../core/services/signalr.service';
+import { DrillRecommendationsComponent } from '../../shared/components/drill-recommendations/drill-recommendations.component';
+import { PhaseScoreCardComponent } from '../../shared/components/phase-score-card/phase-score-card.component';
+import { SkeletonViewerComponent } from '../../shared/components/skeleton-viewer/skeleton-viewer.component';
 
 @Component({
   selector: 'app-analysis-results',
@@ -37,6 +49,11 @@ import { SignalRService } from '../../core/services/signalr.service';
     MatProgressSpinnerModule,
     MatChipsModule,
     MatProgressBarModule,
+    MatTabsModule,
+    MatTooltipModule,
+    DrillRecommendationsComponent,
+    PhaseScoreCardComponent,
+    SkeletonViewerComponent,
   ],
   templateUrl: './analysis-results.component.html',
   styleUrl: './analysis-results.component.scss',
@@ -46,6 +63,7 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   protected analysisService = inject(AnalysisService);
   protected signalRService = inject(SignalRService);
+  protected drillService = inject(DrillService);
 
   private destroy$ = new Subject<void>();
   private analysisRequestId: number = 0;
@@ -55,6 +73,7 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
   protected result = this.analysisService.currentResult;
   protected isLoading = signal(true);
   protected error = signal<string | null>(null);
+  protected showGif = signal(false);
 
   // Computed
   protected isProcessing = computed(() => {
@@ -70,17 +89,63 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
     return res !== null && res !== undefined;
   });
 
-  protected sortedFeatures = computed(() => {
+  protected phaseScoresArray = computed(() => {
     const res = this.result();
-    if (!res?.featureImportance) return [];
-    return Object.entries(res.featureImportance)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5); // Top 5 features
+    if (!res?.phaseScores) return [];
+    return [
+      {
+        phase: SwingPhase.Preparation,
+        score: res.phaseScores.preparation,
+        label: 'Preparation',
+      },
+      {
+        phase: SwingPhase.Backswing,
+        score: res.phaseScores.backswing,
+        label: 'Backswing',
+      },
+      {
+        phase: SwingPhase.Contact,
+        score: res.phaseScores.contact,
+        label: 'Contact',
+      },
+      {
+        phase: SwingPhase.FollowThrough,
+        score: res.phaseScores.followThrough,
+        label: 'Follow Through',
+      },
+    ];
+  });
+
+  protected worstPhase = computed(() => {
+    const phases = this.phaseScoresArray();
+    if (phases.length === 0) return null;
+    return phases.reduce((worst, current) =>
+      current.score < worst.score ? current : worst
+    );
+  });
+
+  protected topDeviations = computed(() => {
+    const res = this.result();
+    if (!res?.phaseDeviations) return [];
+
+    // Flatten all deviations and sort by absolute z-score
+    const allDeviations = res.phaseDeviations.flatMap((pd: PhaseDeviationDto) =>
+      pd.featureDeviations.map((fd) => ({
+        ...fd,
+        phase: pd.phase,
+        phaseLabel: SwingPhaseLabels[pd.phase as SwingPhase],
+      }))
+    );
+
+    return allDeviations
+      .sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore))
+      .slice(0, 5);
   });
 
   // Constants for template
   protected AnalysisStatus = AnalysisStatus;
   protected SwingTypes = SwingType;
+  protected SwingPhaseLabels = SwingPhaseLabels;
 
   ngOnInit(): void {
     this.analysisRequestId = Number(this.route.snapshot.paramMap.get('id'));
@@ -183,9 +248,13 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
       .replace(/^./, (str) => str.toUpperCase());
   }
 
-  protected getFeatureBarWidth(value: number): number {
-    // Assuming values are 0-1 or percentages
-    return Math.min(Math.max(value * 100, 5), 100);
+  protected toggleGif(): void {
+    this.showGif.update((v) => !v);
+  }
+
+  protected onDrillFeedback(drill: DrillRecommendationDto): void {
+    // Refresh results to update drill recommendations
+    this.analysisService.getResult(this.analysisRequestId).subscribe();
   }
 
   protected deleteAnalysis(): void {

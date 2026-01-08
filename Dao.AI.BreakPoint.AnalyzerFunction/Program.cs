@@ -15,6 +15,9 @@ builder
     .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables();
 
+// Add Azure Key Vault secrets as configuration provider (Aspire extension)
+builder.Configuration.AddAzureKeyVaultSecrets("keyvault");
+
 builder.ConfigureFunctionsWebApplication();
 
 builder.Services.AddApplicationInsightsTelemetryWorkerService();

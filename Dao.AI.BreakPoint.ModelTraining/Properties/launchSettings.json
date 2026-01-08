@@ -2,7 +2,7 @@
   "profiles": {
     "Dao.AI.BreakPoint.ModelTraining": {
       "commandName": "Project",
-      "commandLineArgs": "-d \"C:\\Users\\DanielOlvera\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.ModelTraining\\data\"\r\n-o \"C:\\Users\\DanielOlvera\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\swinganalyzer.onnx\"\r\n-c \"C:\\Users\\DanielOlvera\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\swing_phase_classifier.onnx\"\r\n-m \"C:\\Users\\DanielOlvera\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\movenet_output_model.onnx\""
+      "commandLineArgs": "-d \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.ModelTraining\\data\"\r\n-o \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\"\r\n-c \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\swing_phase_classifier.onnx\"\r\n-m \"C:\\Users\\dancd\\source\\repos\\Dao.AI.BreakPoint\\Dao.AI.BreakPoint.Models\\movenet_output_model.onnx\""
     }
   }
 }

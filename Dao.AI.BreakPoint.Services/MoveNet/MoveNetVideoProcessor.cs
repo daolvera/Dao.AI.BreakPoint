@@ -161,11 +161,13 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
             }
 
             // take every three frames and smooth out the phase by weighted majority voting
-            SwingPhase averageSwingPhase = WeightedVotingSwingPhase([
-                (firstFrameData.SwingPhase, firstPhaseConfidence),
-                (secondFrameData.SwingPhase, secondPhaseConfidence),
-                (thirdFrameData.SwingPhase, thirdPhaseConfidence),
-            ]);
+            SwingPhase averageSwingPhase = WeightedVotingSwingPhase(
+                [
+                    (firstFrameData.SwingPhase, firstPhaseConfidence),
+                    (secondFrameData.SwingPhase, secondPhaseConfidence),
+                    (thirdFrameData.SwingPhase, thirdPhaseConfidence),
+                ]
+            );
 
             SwingPhase WeightedVotingSwingPhase(
                 List<(SwingPhase phase, double confidence)> swingPhasesByConfidence
@@ -181,14 +183,14 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
                     return swingPhasesByConfidence.First().phase;
                 }
 
-                // if swing appears with high confidence, return that
+                // if contact appears with high confidence, return that
                 if (
                     swingPhasesByConfidence.Any(o =>
-                        o.phase == SwingPhase.Swing && o.confidence > MinPhaseConfidence
+                        o.phase == SwingPhase.Contact && o.confidence > MinPhaseConfidence
                     )
                 )
                 {
-                    return SwingPhase.Swing;
+                    return SwingPhase.Contact;
                 }
 
                 // Prioritize active swing phases (Backswing, Swing, FollowThrough) over None/Preparation
@@ -279,14 +281,14 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
 
     private static void CompleteSwing(List<SwingData> swings, List<FrameData> currentSwingFrames)
     {
-        if (!currentSwingFrames.Any(o => o.SwingPhase == SwingPhase.Swing))
+        if (!currentSwingFrames.Any(o => o.SwingPhase == SwingPhase.Contact))
         {
             // Find the last Backswing frame (right before FollowThrough begins)
             for (int i = currentSwingFrames.Count - 1; i >= 0; i--)
             {
                 if (currentSwingFrames[i].SwingPhase == SwingPhase.Backswing)
                 {
-                    currentSwingFrames[i].SwingPhase = SwingPhase.Swing;
+                    currentSwingFrames[i].SwingPhase = SwingPhase.Contact;
                     break;
                 }
             }
@@ -295,11 +297,11 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
     }
 
     /// <summary>
-    /// Checks if the phase is an active swing phase (Backswing, Swing, or FollowThrough).
+    /// Checks if the phase is an active swing phase (Backswing, Contact, or FollowThrough).
     /// None and Preparation are not considered active swing phases.
     /// </summary>
     private static bool IsActiveSwingPhase(SwingPhase phase) =>
-        (phase is SwingPhase.Backswing or SwingPhase.Swing or SwingPhase.FollowThrough);
+        (phase is SwingPhase.Backswing or SwingPhase.Contact or SwingPhase.FollowThrough);
 
     /// <summary>
     /// Checks if a swing has completed a swing progression (Backswing -> Swing -> FollowThrough).
@@ -330,17 +332,17 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
 
         var lastPhase = currentSwingFrames.Last().SwingPhase;
 
-        // Backswing -> Backswing or Swing
-        // Backswing -> FollowThrough (this is allowed in case Swing phase is missed)
-        // Swing -> Swing or FollowThrough
+        // Backswing -> Backswing or Contact
+        // Backswing -> FollowThrough (this is allowed in case Contact phase is missed)
+        // Contact -> Contact or FollowThrough
         // FollowThrough -> FollowThrough
         return (lastPhase, averageSwingPhase) switch
         {
             (SwingPhase.Backswing, SwingPhase.Backswing) => true,
-            (SwingPhase.Backswing, SwingPhase.Swing) => true,
+            (SwingPhase.Backswing, SwingPhase.Contact) => true,
             (SwingPhase.Backswing, SwingPhase.FollowThrough) => true,
-            (SwingPhase.Swing, SwingPhase.Swing) => true,
-            (SwingPhase.Swing, SwingPhase.FollowThrough) => true,
+            (SwingPhase.Contact, SwingPhase.Contact) => true,
+            (SwingPhase.Contact, SwingPhase.FollowThrough) => true,
             (SwingPhase.FollowThrough, SwingPhase.FollowThrough) => true,
             _ => false,
         };

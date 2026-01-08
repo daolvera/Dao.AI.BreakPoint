@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnalysisRequestRepository, AnalysisRequestRepository>();
         services.AddScoped<IAnalysisResultRepository, AnalysisResultRepository>();
         services.AddScoped<ICoachingService, CoachingService>();
+        services.AddScoped<IDrillRecommendationService, DrillRecommendationService>();
         return services;
     }
 
@@ -60,9 +61,13 @@ public static class ServiceCollectionExtensions
         );
         services.PostConfigure<SwingQualityModelOptions>(options =>
         {
-            if (!string.IsNullOrEmpty(options.ModelPath))
+            if (!string.IsNullOrEmpty(options.ModelsDirectory))
             {
-                options.ModelPath = ResolveModelPath(options.ModelPath);
+                options.ModelsDirectory = ResolveModelPath(options.ModelsDirectory);
+            }
+            if (!string.IsNullOrEmpty(options.ReferenceProfilesPath))
+            {
+                options.ReferenceProfilesPath = ResolveModelPath(options.ReferenceProfilesPath);
             }
         });
 

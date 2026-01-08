@@ -5,6 +5,6 @@ public enum SwingPhase
     None,
     Preparation,
     Backswing,
-    Swing,
+    Contact,
     FollowThrough,
 }

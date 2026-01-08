@@ -151,6 +151,7 @@ export class AnalysisService {
         analysisRequestId: result.analysisRequestId,
         strokeType: result.strokeType,
         qualityScore: result.qualityScore,
+        phaseScores: result.phaseScores,
         createdAt: result.createdAt,
       },
       ...history,

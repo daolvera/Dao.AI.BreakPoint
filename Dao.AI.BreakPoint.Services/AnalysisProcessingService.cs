@@ -56,7 +56,7 @@ public class AnalysisProcessingService(
             PlayerId = request.PlayerId,
             StrokeType = request.StrokeType,
             QualityScore = qualityScore,
-            FeatureImportanceJson = JsonSerializer.Serialize(featureImportance),
+            // Phase scores and deviations are populated separately by PhaseQualityInferenceService
             SkeletonOverlayUrl = skeletonOverlayUrl,
             VideoBlobUrl = request.VideoBlobUrl,
         };

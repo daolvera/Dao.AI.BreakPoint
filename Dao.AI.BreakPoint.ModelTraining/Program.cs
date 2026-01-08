@@ -1,5 +1,6 @@
 ﻿using Dao.AI.BreakPoint.ModelTraining.VideoAnalysis;
 using Dao.AI.BreakPoint.Services.MoveNet;
+using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
@@ -29,6 +30,11 @@ internal class Program
         if (args.Contains("--reextract") || args.Contains("-r"))
         {
             await ReExtractFeaturesAsync(args);
+            return;
+        }
+        if (args.Contains("--train-quality") || args.Contains("-q"))
+        {
+            await TrainPhaseQualityModelsAsync(args);
             return;
         }
 
@@ -99,22 +105,34 @@ internal class Program
             return;
         }
 
-        var trainingService = new SwingModelTrainingService();
+        // Train phase quality MLP models (the new approach)
+        Console.WriteLine("Preparing training data for phase quality models...");
+        var labeledSwings = processedSwingVideos
+            .Select(v => (v.TrainingLabel, v.SwingVideo.Swings))
+            .ToList();
 
-        if (options.BatchSize > processedSwingVideos.Count)
+        var trainingData = PhaseQualityMlpTrainer.PrepareTrainingData(labeledSwings);
+
+        var mlpConfig = new MlpTrainingConfig
         {
-            options.BatchSize = processedSwingVideos.Count;
-            Console.WriteLine(
-                $"Adjusted batch size to {options.BatchSize} due to limited training data."
-            );
-        }
+            Epochs = 200,
+            BatchSize = options.BatchSize,
+            LearningRate = options.LearningRate,
+            OutputDirectory = Path.GetDirectoryName(options.ModelOutputPath) ?? "models",
+        };
+
+        var trainer = new PhaseQualityMlpTrainer(mlpConfig);
 
         try
         {
-            // Train the model and export to ONNX
-            var modelPath = await trainingService.TrainAsync(processedSwingVideos, options);
+            var modelPaths = await trainer.TrainAllPhasesAsync(trainingData);
 
-            Console.WriteLine($"Training completed! Model saved at: {modelPath}");
+            Console.WriteLine();
+            Console.WriteLine("Training completed! Models saved:");
+            foreach (var (phase, path) in modelPaths)
+            {
+                Console.WriteLine($"  {phase}: {path}");
+            }
             Console.WriteLine(
                 $"Trained on {processedSwingVideos.Sum(o => o.SwingVideo.Swings.Count)} Swings"
             );
@@ -122,6 +140,95 @@ internal class Program
         catch (Exception ex)
         {
             Console.WriteLine($"Training failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Train phase quality MLP models from video data
+    /// </summary>
+    private static async Task TrainPhaseQualityModelsAsync(string[] args)
+    {
+        Console.WriteLine("Training Phase Quality MLP Models...");
+
+        var videoDir = "data";
+        var moveNetPath = "movenet/saved_model.pb";
+        var phaseClassifierPath = "swing_phase_classifier.onnx";
+        var outputDir = "models";
+        int epochs = 200;
+        float learningRate = 0.001f;
+
+        int index = 0;
+        foreach (var arg in args)
+        {
+            switch (arg.ToLower())
+            {
+                case "--video-dir":
+                case "-d":
+                    videoDir = GetNextArg(args, index);
+                    break;
+                case "--movenet":
+                case "-m":
+                    moveNetPath = GetNextArg(args, index);
+                    break;
+                case "--phase-classifier":
+                case "-c":
+                    phaseClassifierPath = GetNextArg(args, index);
+                    break;
+                case "--output":
+                case "-o":
+                    outputDir = GetNextArg(args, index);
+                    break;
+                case "--epochs":
+                case "-e":
+                    epochs = int.Parse(GetNextArg(args, index));
+                    break;
+                case "--learning-rate":
+                case "-lr":
+                    learningRate = float.Parse(GetNextArg(args, index));
+                    break;
+            }
+            index++;
+        }
+
+        if (!Directory.Exists(videoDir))
+        {
+            throw new DirectoryNotFoundException($"Video directory not found: {videoDir}");
+        }
+
+        var datasetLoader = new TrainingDatasetLoader(new OpenCvVideoProcessingService());
+        var processedVideos = await datasetLoader.ProcessVideoDirectoryAsync(
+            videoDir,
+            moveNetPath,
+            phaseClassifierPath
+        );
+
+        if (processedVideos.Count == 0)
+        {
+            Console.WriteLine("No processed videos available. Exiting.");
+            return;
+        }
+
+        var labeledSwings = processedVideos
+            .Select(v => (v.TrainingLabel, v.SwingVideo.Swings))
+            .ToList();
+
+        var trainingData = PhaseQualityMlpTrainer.PrepareTrainingData(labeledSwings);
+
+        var mlpConfig = new MlpTrainingConfig
+        {
+            Epochs = epochs,
+            LearningRate = learningRate,
+            OutputDirectory = outputDir,
+        };
+
+        var trainer = new PhaseQualityMlpTrainer(mlpConfig);
+        var modelPaths = await trainer.TrainAllPhasesAsync(trainingData);
+
+        Console.WriteLine();
+        Console.WriteLine("Training completed! Models saved:");
+        foreach (var (phase, path) in modelPaths)
+        {
+            Console.WriteLine($"  {phase}: {path}");
         }
     }
 
@@ -383,14 +490,33 @@ internal class Program
                 var json = await File.ReadAllTextAsync(jsonFile);
                 var frameData = System.Text.Json.JsonSerializer.Deserialize<LabeledFrameJson>(json);
 
-                if (frameData != null && frameData.Features != null)
+                if (frameData != null && frameData.Joints != null && frameData.Angles != null)
                 {
+                    // Reconstruct FrameData and extract features for old ML.NET classifier
+                    var reconstructedFrame = ReconstructFrameDataForLegacy(
+                        frameData.Joints,
+                        frameData.Angles,
+                        frameData.FrameIndex
+                    );
+                    var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
+                        reconstructedFrame.Joints,
+                        [
+                            reconstructedFrame.LeftElbowAngle,
+                            reconstructedFrame.RightElbowAngle,
+                            reconstructedFrame.LeftShoulderAngle,
+                            reconstructedFrame.RightShoulderAngle,
+                            reconstructedFrame.LeftHipAngle,
+                            reconstructedFrame.RightHipAngle,
+                            reconstructedFrame.LeftKneeAngle,
+                            reconstructedFrame.RightKneeAngle,
+                        ],
+                        frameData.IsRightHanded,
+                        null,
+                        null
+                    );
+
                     labeledFrames.Add(
-                        new LabeledFrameData
-                        {
-                            PhaseLabel = frameData.Phase,
-                            Features = frameData.Features,
-                        }
+                        new LabeledFrameData { PhaseLabel = frameData.Phase, Features = features }
                     );
                 }
             }
@@ -401,6 +527,44 @@ internal class Program
         }
 
         return labeledFrames;
+    }
+
+    /// <summary>
+    /// Reconstruct FrameData from flat arrays stored in JSON (for legacy ML.NET classifier)
+    /// </summary>
+    private static FrameData ReconstructFrameDataForLegacy(
+        float[] jointsFlat,
+        float[] angles,
+        int frameIndex
+    )
+    {
+        var joints = new JointData[17];
+        for (int j = 0; j < 17; j++)
+        {
+            joints[j] = new JointData
+            {
+                JointFeature = (JointFeatures)j,
+                X = jointsFlat[j * 4 + 0],
+                Y = jointsFlat[j * 4 + 1],
+                Confidence = jointsFlat[j * 4 + 2],
+                Speed = jointsFlat[j * 4 + 3],
+            };
+        }
+
+        return new FrameData
+        {
+            Joints = joints,
+            LeftElbowAngle = angles[0],
+            RightElbowAngle = angles[1],
+            LeftShoulderAngle = angles[2],
+            RightShoulderAngle = angles[3],
+            LeftHipAngle = angles[4],
+            RightHipAngle = angles[5],
+            LeftKneeAngle = angles[6],
+            RightKneeAngle = angles[7],
+            FrameIndex = frameIndex,
+            SwingPhase = Data.Enums.SwingPhase.None,
+        };
     }
 
     private static PhaseClassifierTrainingConfiguration ParsePhaseClassifierArguments(string[] args)
@@ -484,9 +648,9 @@ internal class Program
         Console.WriteLine();
         Console.WriteLine("Usage:");
         Console.WriteLine();
-        Console.WriteLine("  SWING QUALITY MODEL (default):");
+        Console.WriteLine("  PHASE QUALITY MLP MODELS (default or -q):");
         Console.WriteLine(
-            "    --video-dir|-d <path>       Path to directory with videos and individual label files"
+            "    --video-dir|-d <path>       Path to directory with videos and .json label files"
         );
         Console.WriteLine(
             "    --movenet|-m <path>         Path to MoveNet model file (default: movenet/saved_model.pb)"
@@ -495,20 +659,19 @@ internal class Program
             "    --phase-classifier|-c <path>  Path to swing phase classifier model (required)"
         );
         Console.WriteLine(
-            "    --output|-o <path>          Output model path (default: swing_model)"
+            "    --output|-o <path>          Output directory for models (default: models)"
         );
+        Console.WriteLine("    --epochs|-e <num>           Training epochs (default: 200)");
+        Console.WriteLine("    --learning-rate|-lr <float> Learning rate (default: 0.001)");
         Console.WriteLine();
-        Console.WriteLine("  SWING PHASE CLASSIFIER:");
+        Console.WriteLine("  SWING PHASE CLASSIFIER (LSTM):");
         Console.WriteLine(
-            "    --train-phase-classifier|-p   Train the swing phase classifier instead"
+            "    --train-phase-classifier|-p   Train the LSTM swing phase classifier"
         );
         Console.WriteLine(
             "    --labeled-frames|-l <path>    Path to directory with labeled frame JSON files"
         );
-        Console.WriteLine(
-            "    --max-iterations|-i <num>     Max training iterations (default: 100)"
-        );
-        Console.WriteLine("    --l2 <float>                  L2 regularization (default: 0.1)");
+        Console.WriteLine("    --epochs|-e <num>             Training epochs (default: 100)");
         Console.WriteLine();
         Console.WriteLine("  FRAME EXTRACTION (for labeling):");
         Console.WriteLine(
@@ -518,7 +681,7 @@ internal class Program
         Console.WriteLine(
             "    --output|-o <path>            Output directory for JSON files (default: labeled_frames)"
         );
-        Console.WriteLine("    --sample-rate|-s <num>        Extract every N frames (default: 5)");
+        Console.WriteLine("    --sample-rate|-s <num>        Extract every N frames (default: 50)");
         Console.WriteLine("    --left-handed                 Mark frames as left-handed player");
         Console.WriteLine();
         Console.WriteLine("  DATA AUGMENTATION:");
@@ -526,10 +689,10 @@ internal class Program
             "    --augment|-a                  Augment labeled data by extracting adjacent frames"
         );
         Console.WriteLine(
-            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files (default: phasedata)"
+            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files"
         );
         Console.WriteLine(
-            "    --video-dir|-d <path>         Path to directory with video files (default: data)"
+            "    --video-dir|-d <path>         Path to directory with video files"
         );
         Console.WriteLine(
             "    --offset|-n <num>             Number of frames before/after to extract (default: 1)"
@@ -543,25 +706,29 @@ internal class Program
             "    --reextract|-r                Re-extract features from existing labeled JSON files"
         );
         Console.WriteLine(
-            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files (default: phasedata)"
+            "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files"
         );
         Console.WriteLine(
-            "    --video-dir|-d <path>         Path to directory with video files (default: data)"
+            "    --video-dir|-d <path>         Path to directory with video files"
         );
         Console.WriteLine(
             "    --output|-o <path>            Output directory (default: overwrites input files)"
         );
         Console.WriteLine();
-        Console.WriteLine("  --help|-h               Show this help message");
+        Console.WriteLine("  --help|-h                       Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  dotnet run --video-dir training_videos/ --movenet models/movenet.pb");
-        Console.WriteLine(
-            "  dotnet run -p --labeled-frames data/labeled_frames/ -o phase_classifier"
-        );
-        Console.WriteLine("  dotnet run -f -d videos/ -o labeled_frames/ -s 10");
-        Console.WriteLine("  dotnet run -a -l phasedata -d data -n 2");
-        Console.WriteLine("  dotnet run -r -l phasedata -d data");
+        Console.WriteLine("  # Train phase quality MLPs (4 models: prep, backswing, contact, followthrough)");
+        Console.WriteLine("  dotnet run -- -d data -m movenet/saved_model.pb -c swing_phase_classifier.onnx -o models");
+        Console.WriteLine();
+        Console.WriteLine("  # Train LSTM phase classifier");
+        Console.WriteLine("  dotnet run -- -p -l phaseData -o models -e 100");
+        Console.WriteLine();
+        Console.WriteLine("  # Extract frames for manual labeling");
+        Console.WriteLine("  dotnet run -- -f -d videos/ -o labeled_frames/ -s 10");
+        Console.WriteLine();
+        Console.WriteLine("  # Re-extract features (preserves phase labels)");
+        Console.WriteLine("  dotnet run -- -r -l phasedata -d data");
     }
 }
 
@@ -577,14 +744,7 @@ internal class FrameExtractionConfig
     public bool IsRightHanded { get; set; } = true;
 }
 
-/// <summary>
-/// JSON structure for labeled frame files
-/// </summary>
-internal class LabeledFrameJson
-{
-    public int Phase { get; set; }
-    public float[]? Features { get; set; }
-}
+// LabeledFrameJson is defined in PhaseClassifierLstmTrainer.cs
 
 /// <summary>
 /// Configuration for data augmentation

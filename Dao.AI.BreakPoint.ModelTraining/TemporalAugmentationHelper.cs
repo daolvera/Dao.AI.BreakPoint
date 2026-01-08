@@ -23,6 +23,12 @@ public class TemporalAugmentationHelper
     {
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
+        NumberHandling = System
+            .Text
+            .Json
+            .Serialization
+            .JsonNumberHandling
+            .AllowNamedFloatingPointLiterals,
     };
 
     public TemporalAugmentationHelper(
@@ -178,7 +184,8 @@ public class TemporalAugmentationHelper
                 FrameIndex = labeled.FrameIndex,
                 Timestamp = labeled.FrameIndex / metadata.FrameRate,
                 IsRightHanded = labeled.IsRightHanded,
-                Features = data.Features,
+                Joints = data.Joints,
+                Angles = data.Angles,
                 Phase = labeled.PhaseLabel, // Preserve the original label!
             };
 
@@ -217,10 +224,11 @@ public class TemporalAugmentationHelper
             var frameIndex = int.Parse(match.Groups[2].Value);
 
             // Load the frame data to get the phase label
+            // Use LegacyFrameJson to support both old (Features) and new (Joints/Angles) formats
             try
             {
                 var json = File.ReadAllText(file);
-                var frameData = JsonSerializer.Deserialize<UnlabeledFrameJson>(json, _jsonOptions);
+                var frameData = JsonSerializer.Deserialize<LegacyFrameJson>(json, _jsonOptions);
 
                 if (frameData is null || frameData.Phase < 0)
                 {
@@ -329,7 +337,8 @@ public class TemporalAugmentationHelper
                 FrameIndex = frameIndex,
                 Timestamp = frameIndex / metadata.FrameRate,
                 IsRightHanded = sourceFrame.IsRightHanded,
-                Features = data.Features,
+                Joints = data.Joints,
+                Angles = data.Angles,
                 Phase = sourceFrame.PhaseLabel,
             };
 
@@ -440,18 +449,27 @@ public class TemporalAugmentationHelper
                 metadata.Width
             );
 
-            // If this is a frame we need, extract features
+            // If this is a frame we need, save raw joint data
             if (frameIndices.Contains(actualFrameIndex))
             {
-                var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
-                    keypoints,
-                    angles,
-                    isRightHanded,
-                    prevFrame,
-                    prev2Frame
-                );
+                // Serialize joints to flat array: [x, y, confidence, speed] × 17 joints = 68 values
+                var jointsFlat = new float[keypoints.Length * 4];
+                for (int j = 0; j < keypoints.Length; j++)
+                {
+                    jointsFlat[j * 4 + 0] = SanitizeFloat(keypoints[j].X);
+                    jointsFlat[j * 4 + 1] = SanitizeFloat(keypoints[j].Y);
+                    jointsFlat[j * 4 + 2] = SanitizeFloat(keypoints[j].Confidence);
+                    jointsFlat[j * 4 + 3] = SanitizeFloat(keypoints[j].Speed ?? 0f);
+                }
 
-                result[actualFrameIndex] = new ProcessedFrameData { Features = features };
+                // Sanitize angles as well
+                var sanitizedAngles = angles.Select(SanitizeFloat).ToArray();
+
+                result[actualFrameIndex] = new ProcessedFrameData
+                {
+                    Joints = jointsFlat,
+                    Angles = sanitizedAngles,
+                };
             }
 
             // Update temporal context
@@ -463,6 +481,18 @@ public class TemporalAugmentationHelper
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Sanitize float values by replacing NaN/Infinity with 0
+    /// </summary>
+    private static float SanitizeFloat(float value)
+    {
+        if (float.IsNaN(value) || float.IsInfinity(value))
+        {
+            return 0f;
+        }
+        return value;
     }
 
     private string? FindVideoFile(string videoName)
@@ -542,7 +572,7 @@ public class TemporalAugmentationHelper
             try
             {
                 var json = File.ReadAllText(file);
-                var frameData = JsonSerializer.Deserialize<UnlabeledFrameJson>(json, _jsonOptions);
+                var frameData = JsonSerializer.Deserialize<LegacyFrameJson>(json, _jsonOptions);
 
                 if (frameData?.Phase >= 0 && frameData.Phase < 5)
                 {
@@ -583,9 +613,10 @@ internal class LabeledFrameInfo
 }
 
 /// <summary>
-/// Processed frame data with features
+/// Processed frame data with raw joint data
 /// </summary>
 internal class ProcessedFrameData
 {
-    public required float[] Features { get; set; }
+    public required float[] Joints { get; set; }
+    public required float[] Angles { get; set; }
 }

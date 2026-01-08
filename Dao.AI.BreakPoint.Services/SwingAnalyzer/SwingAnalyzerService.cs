@@ -1,11 +1,11 @@
-﻿using Dao.AI.BreakPoint.Data.Enums;
+﻿using System.Text.Json;
+using Dao.AI.BreakPoint.Data.Enums;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
@@ -54,21 +54,26 @@ public class SwingAnalyzerService(
             throw new InvalidOperationException("No valid swings detected in the video.");
         }
 
-        // Analyze each swing and aggregate results
-        var swingResults = new List<SwingQualityResult>();
+        // Analyze each swing using the phase-aware quality service
         var qualityOptions = SwingQualityOptions.Value;
+        using var qualityService = new PhaseQualityInferenceService(
+            qualityOptions.ModelsDirectory,
+            qualityOptions.ReferenceProfilesPath
+        );
 
-        using var qualityService = new SwingQualityInferenceService(qualityOptions.ModelPath);
-
+        var swingResults = new List<PhaseQualityResult>();
         foreach (var swing in swingVideo.Swings)
         {
-            // Pass SwingData directly - no preprocessing needed
-            var result = qualityService.RunInference(swing);
+            var result = qualityService.RunInference(
+                swing,
+                analysisRequest.StrokeType,
+                isRightHanded
+            );
             swingResults.Add(result);
         }
 
         // Aggregate results (use best swing for now, could average in future)
-        var bestResult = swingResults.OrderByDescending(r => r.QualityScore).First();
+        var bestResult = swingResults.OrderByDescending(r => r.OverallScore).First();
         var bestSwingIndex = swingResults.IndexOf(bestResult);
         var bestSwing = swingVideo.Swings[bestSwingIndex];
 
@@ -81,18 +86,36 @@ public class SwingAnalyzerService(
             VideoBlobUrl = analysisRequest.VideoBlobUrl,
         };
 
-        // Populate the result with quality score and feature importance
-        analysisRequest.Result.QualityScore = bestResult.QualityScore;
-        analysisRequest.Result.FeatureImportanceJson = JsonSerializer.Serialize(
-            bestResult.FeatureImportance
+        // Populate the result with quality scores
+        analysisRequest.Result.QualityScore = bestResult.OverallScore;
+
+        // Populate phase scores
+        if (bestResult.PhaseResults.TryGetValue(SwingPhase.Preparation, out var prepResult))
+            analysisRequest.Result.PrepScore = (int)prepResult.Score;
+        if (bestResult.PhaseResults.TryGetValue(SwingPhase.Backswing, out var backswingResult))
+            analysisRequest.Result.BackswingScore = (int)backswingResult.Score;
+        if (bestResult.PhaseResults.TryGetValue(SwingPhase.Contact, out var contactResult))
+            analysisRequest.Result.ContactScore = (int)contactResult.Score;
+        if (bestResult.PhaseResults.TryGetValue(SwingPhase.FollowThrough, out var followResult))
+            analysisRequest.Result.FollowThroughScore = (int)followResult.Score;
+
+        // Collect all feature deviations for coaching
+        var allDeviations = bestResult
+            .PhaseResults.Values.SelectMany(p => p.Deviations)
+            .OrderByDescending(d => Math.Abs(d.ZScore))
+            .ToList();
+
+        // Map feature deviations to coaching feature importance for backward compatibility
+        var featureImportance = CoachingFeatureMapper.MapDeviationsToFeatureImportance(
+            allDeviations
         );
 
         // Generate coaching tips using AI coaching service
         var ustaRating = player?.UstaRating ?? 3.0; // Default to intermediate
         var coachingTips = await CoachingService.GenerateCoachingTipsAsync(
             analysisRequest.StrokeType,
-            bestResult.QualityScore,
-            bestResult.FeatureImportance,
+            bestResult.OverallScore,
+            featureImportance,
             ustaRating
         );
         analysisRequest.Result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
@@ -108,7 +131,10 @@ public class SwingAnalyzerService(
         );
 
         analysisRequest.Status = AnalysisStatus.Completed;
-        await AnalysisRequestRepository.UpdateAsync(analysisRequest, analysisRequest.CreatedByAppUserId);
+        await AnalysisRequestRepository.UpdateAsync(
+            analysisRequest,
+            analysisRequest.CreatedByAppUserId
+        );
     }
 
     /// <summary>
@@ -117,7 +143,7 @@ public class SwingAnalyzerService(
     private async Task GenerateAndUploadSkeletonOverlayAsync(
         List<byte[]> allFrames,
         SwingData swing,
-        SwingQualityResult result,
+        PhaseQualityResult result,
         int videoWidth,
         int videoHeight,
         AnalysisRequest analysisRequest
@@ -139,12 +165,21 @@ public class SwingAnalyzerService(
                 return; // No frames to process
             }
 
+            // Map feature deviations to feature importance for overlay
+            var allDeviations = result
+                .PhaseResults.Values.SelectMany(p => p.Deviations)
+                .OrderByDescending(d => Math.Abs(d.ZScore))
+                .ToList();
+            var featureImportance = CoachingFeatureMapper.MapDeviationsToFeatureImportance(
+                allDeviations
+            );
+
             // Generate the skeleton overlay GIF
             var gifBytes = SkeletonOverlayService.GenerateOverlayGif(
                 swingFrameImages,
                 swing,
-                result.FeatureImportance,
-                result.QualityScore,
+                featureImportance,
+                result.OverallScore,
                 videoWidth,
                 videoHeight,
                 frameDelayMs: 50 // ~20 FPS

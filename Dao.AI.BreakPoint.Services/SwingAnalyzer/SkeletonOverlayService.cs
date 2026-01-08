@@ -411,7 +411,7 @@ public class SkeletonOverlayService : ISkeletonOverlayService
         string phaseShort = frameData.SwingPhase switch
         {
             Data.Enums.SwingPhase.Backswing => "BACK",
-            Data.Enums.SwingPhase.Swing => "HIT",
+            Data.Enums.SwingPhase.Contact => "CONTACT",
             Data.Enums.SwingPhase.FollowThrough => "FOLLOW",
             _ => "",
         };

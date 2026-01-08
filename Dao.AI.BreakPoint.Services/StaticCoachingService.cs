@@ -19,6 +19,116 @@ public class StaticCoachingService : ICoachingService
         return Task.FromResult(tips);
     }
 
+    public Task<List<GeneratedDrill>> GenerateDrillRecommendationsAsync(
+        DrillRecommendationInput input
+    )
+    {
+        var drills = GetStaticDrillRecommendations(input);
+        return Task.FromResult(drills);
+    }
+
+    private static List<GeneratedDrill> GetStaticDrillRecommendations(
+        DrillRecommendationInput input
+    )
+    {
+        var drills = new List<GeneratedDrill>();
+        var priority = 1;
+
+        // Find the phase with lowest score
+        var lowestPhase = input.PhaseAnalyses.OrderBy(p => p.Score).FirstOrDefault();
+
+        if (lowestPhase != null)
+        {
+            var drill = lowestPhase.Phase switch
+            {
+                SwingPhase.Preparation => new GeneratedDrill(
+                    SwingPhase.Preparation,
+                    "ready position",
+                    "Split Step Drill",
+                    "Practice your split step timing by hopping as your opponent hits the ball. Land with your weight balanced on both feet, knees bent, ready to explode in either direction.",
+                    "3 sets of 10 reps",
+                    priority++
+                ),
+                SwingPhase.Backswing => new GeneratedDrill(
+                    SwingPhase.Backswing,
+                    "shoulder rotation",
+                    "Turn and Freeze Drill",
+                    "Practice your unit turn by rotating your shoulders while keeping your hips stable. Freeze at the end of your backswing and check that your racket is pointing to the back fence.",
+                    "3 sets of 15 reps",
+                    priority++
+                ),
+                SwingPhase.Contact => new GeneratedDrill(
+                    SwingPhase.Contact,
+                    "racket head speed",
+                    "Contact Point Shadow Swings",
+                    "Practice swinging through the contact zone without a ball. Focus on accelerating through contact and hitting the ball in front of your body.",
+                    "5 minutes daily",
+                    priority++
+                ),
+                SwingPhase.FollowThrough => new GeneratedDrill(
+                    SwingPhase.FollowThrough,
+                    "follow through completion",
+                    "Windshield Wiper Drill",
+                    "Practice the full follow-through motion, finishing with your racket over your opposite shoulder. Exaggerate the motion until it becomes natural.",
+                    "3 sets of 20 reps",
+                    priority++
+                ),
+                _ => new GeneratedDrill(
+                    SwingPhase.Contact,
+                    "overall technique",
+                    "Mirror Practice",
+                    "Practice your swing in front of a mirror to check your form at each phase of the stroke.",
+                    "10 minutes daily",
+                    priority++
+                ),
+            };
+
+            drills.Add(drill);
+        }
+
+        // Add general improvement drill based on rating
+        if (input.UstaRating <= 3.0)
+        {
+            drills.Add(
+                new GeneratedDrill(
+                    SwingPhase.Contact,
+                    "consistency",
+                    "Rally Counter Challenge",
+                    "Try to hit 10 consecutive balls in play against a wall or practice partner. Focus on smooth, controlled strokes rather than power.",
+                    "15 minutes, 3x weekly",
+                    priority++
+                )
+            );
+        }
+        else
+        {
+            drills.Add(
+                new GeneratedDrill(
+                    SwingPhase.Contact,
+                    "placement",
+                    "Target Practice",
+                    "Set up targets in the corners of the court. Practice hitting to specific zones, varying your spin and pace with each shot.",
+                    "20 minutes, 2x weekly",
+                    priority++
+                )
+            );
+        }
+
+        // Always add a footwork drill
+        drills.Add(
+            new GeneratedDrill(
+                SwingPhase.Preparation,
+                "footwork",
+                "Lateral Movement Drill",
+                "Set up cones 10 feet apart and practice shuffling between them while shadow swinging. Focus on staying low and maintaining balance throughout.",
+                "3 sets of 30 seconds",
+                priority
+            )
+        );
+
+        return drills.Take(input.MaxDrills).ToList();
+    }
+
     private static List<string> GetStaticTipsForStroke(
         SwingType strokeType,
         double qualityScore,
