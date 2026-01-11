@@ -46,15 +46,16 @@ public class SwingReferenceProfileGenerator
         if (highQualitySwings.Count < 3)
         {
             Console.WriteLine("Warning: Insufficient high-quality data. Lowering threshold to 80.");
-            highQualitySwings = labeledSwings
-                .Where(ls =>
+            highQualitySwings =
+            [
+                .. labeledSwings.Where(ls =>
                     ls.label.StrokeType == strokeType
                     && ls.label.PrepScore >= 80
                     && ls.label.BackswingScore >= 80
                     && ls.label.ContactScore >= 80
                     && ls.label.FollowThroughScore >= 80
-                )
-                .ToList();
+                ),
+            ];
             Console.WriteLine($"Found {highQualitySwings.Count} videos with threshold 80");
         }
 
@@ -63,7 +64,7 @@ public class SwingReferenceProfileGenerator
             StrokeType = strokeType,
             GeneratedAt = DateTime.UtcNow,
             SourceVideoCount = highQualitySwings.Count,
-            FeatureNames = LstmFeatureExtractor.FeatureNames.ToList(),
+            FeatureNames = [.. LstmFeatureExtractor.FeatureNames],
         };
 
         // Collect features by phase

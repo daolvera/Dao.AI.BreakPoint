@@ -491,7 +491,7 @@ public class PhaseQualityInferenceService : IDisposable
             }
         }
 
-        return deviations.OrderByDescending(d => Math.Abs(d.ZScore)).ToList();
+        return [.. deviations.OrderByDescending(d => Math.Abs(d.ZScore))];
     }
 
     private static double ComputeOverallScore(

@@ -178,11 +178,13 @@ public static class AttentionInterpreter
         }
 
         // Sort by importance and return top N
-        return featureImportance
-            .OrderByDescending(f => f.Score)
-            .Take(topN)
-            .Select(f => (f.Name, f.Score))
-            .ToList();
+        return
+        [
+            .. featureImportance
+                .OrderByDescending(f => f.Score)
+                .Take(topN)
+                .Select(f => (f.Name, f.Score)),
+        ];
     }
 
     /// <summary>
@@ -202,10 +204,9 @@ public static class AttentionInterpreter
         }
 
         // Sort by lowest importance (most negative contribution)
-        return featureImportance
-            .OrderBy(f => f.Score)
-            .Take(topN)
-            .Select(f => (f.Name, f.Score))
-            .ToList();
+        return
+        [
+            .. featureImportance.OrderBy(f => f.Score).Take(topN).Select(f => (f.Name, f.Score)),
+        ];
     }
 }

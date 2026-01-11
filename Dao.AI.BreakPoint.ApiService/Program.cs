@@ -3,9 +3,19 @@ using Dao.AI.BreakPoint.ApiService.Hubs;
 using Dao.AI.BreakPoint.ApiService.Services;
 using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Protocols.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure forwarded headers for reverse proxy (Azure Container Apps)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Clear known networks/proxies to trust all proxies (needed for Azure Container Apps)
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
@@ -57,6 +67,9 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
+// Use forwarded headers - must be first middleware
+app.UseForwardedHeaders();
+
 app.UseExceptionHandler();
 
 app.UseCors("AllowAngularApp");
@@ -74,15 +87,8 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<BreakPointDbContext>();
-    await context.Database.EnsureCreatedAsync();
-    //if (app.Environment.IsDevelopment())
-    //{
-    //    await Seeder.SeedFakeData(context);
-    //}
-}
+// Database migrations are handled by the Migrations project
+// Do not use EnsureCreatedAsync() as it bypasses migrations
 
 app.MapControllers();
 

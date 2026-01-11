@@ -27,7 +27,7 @@ public class DrillRecommendationService(BreakPointDbContext dbContext) : IDrillR
             .ThenBy(d => d.Priority)
             .ToListAsync();
 
-        return drills.Select(DrillRecommendationDto.FromModel).ToList();
+        return [.. drills.Select(DrillRecommendationDto.FromModel)];
     }
 
     public async Task<List<DrillRecommendationDto>> GetDrillsForAnalysisAsync(int analysisResultId)
@@ -37,7 +37,7 @@ public class DrillRecommendationService(BreakPointDbContext dbContext) : IDrillR
             .OrderBy(d => d.Priority)
             .ToListAsync();
 
-        return drills.Select(DrillRecommendationDto.FromModel).ToList();
+        return [.. drills.Select(DrillRecommendationDto.FromModel)];
     }
 
     public async Task<DrillRecommendationDto?> GetDrillByIdAsync(int id)
@@ -108,6 +108,6 @@ public class DrillRecommendationService(BreakPointDbContext dbContext) : IDrillR
             .Take(limit)
             .ToListAsync();
 
-        return drills.Select(DrillRecommendationDto.FromModel).ToList();
+        return [.. drills.Select(DrillRecommendationDto.FromModel)];
     }
 }
