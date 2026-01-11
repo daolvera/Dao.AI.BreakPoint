@@ -66,7 +66,6 @@ public class AnalysisResultDto
     /// </summary>
     public List<DrillRecommendationDto> DrillRecommendations { get; set; } = [];
 
-    public List<string> CoachingTips { get; set; } = [];
     public string? SkeletonOverlayUrl { get; set; }
     public string? SkeletonOverlayGifUrl { get; set; }
     public string? VideoBlobUrl { get; set; }
@@ -74,10 +73,6 @@ public class AnalysisResultDto
 
     public static AnalysisResultDto FromModel(AnalysisResult model)
     {
-        var coachingTips = !string.IsNullOrEmpty(model.CoachingTipsJson)
-            ? JsonSerializer.Deserialize<List<string>>(model.CoachingTipsJson) ?? []
-            : [];
-
         return new AnalysisResultDto
         {
             Id = model.Id,
@@ -87,16 +82,17 @@ public class AnalysisResultDto
             QualityScore = model.QualityScore,
             PhaseScores = new PhaseScoresDto
             {
-                Preparation = model.PrepScore,
                 Backswing = model.BackswingScore,
                 Contact = model.ContactScore,
                 FollowThrough = model.FollowThroughScore,
             },
-            PhaseDeviations = model.PhaseDeviations.Select(PhaseDeviationDto.FromModel).ToList(),
-            DrillRecommendations = model
-                .DrillRecommendations.Select(DrillRecommendationDto.FromModel)
-                .ToList(),
-            CoachingTips = coachingTips,
+            PhaseDeviations = [.. model.PhaseDeviations.Select(PhaseDeviationDto.FromModel)],
+            DrillRecommendations =
+            [
+                .. model
+                    .DrillRecommendations.Where(d => d.IsActive)
+                    .Select(DrillRecommendationDto.FromModel),
+            ],
             SkeletonOverlayUrl = model.SkeletonOverlayUrl,
             SkeletonOverlayGifUrl = model.SkeletonOverlayGifUrl,
             VideoBlobUrl = model.VideoBlobUrl,
@@ -110,7 +106,6 @@ public class AnalysisResultDto
 /// </summary>
 public class PhaseScoresDto
 {
-    public int Preparation { get; set; }
     public int Backswing { get; set; }
     public int Contact { get; set; }
     public int FollowThrough { get; set; }
@@ -129,9 +124,7 @@ public class PhaseDeviationDto
         return new PhaseDeviationDto
         {
             Phase = model.Phase,
-            FeatureDeviations = model
-                .FeatureDeviations.Select(FeatureDeviationDto.FromModel)
-                .ToList(),
+            FeatureDeviations = [.. model.FeatureDeviations.Select(FeatureDeviationDto.FromModel)],
         };
     }
 }
@@ -269,7 +262,6 @@ public class AnalysisResultSummaryDto
             QualityScore = model.QualityScore,
             PhaseScores = new PhaseScoresDto
             {
-                Preparation = model.PrepScore,
                 Backswing = model.BackswingScore,
                 Contact = model.ContactScore,
                 FollowThrough = model.FollowThroughScore,

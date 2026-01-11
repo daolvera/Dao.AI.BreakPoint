@@ -3,6 +3,7 @@ using System;
 using Dao.AI.BreakPoint.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Dao.AI.BreakPoint.Data.Migrations
 {
     [DbContext(typeof(BreakPointDbContext))]
-    partial class BreakPointDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260109043537_AddDrillFeedback")]
+    partial class AddDrillFeedback
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -96,6 +99,9 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("PrepScore")
                         .HasColumnType("integer");
 
                     b.Property<double>("QualityScore")
@@ -439,9 +445,6 @@ namespace Dao.AI.BreakPoint.Data.Migrations
 
                     b.Property<double>("SolidBaselinerScore")
                         .HasColumnType("double precision");
-
-                    b.Property<string>("TrainingHistorySummary")
-                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");

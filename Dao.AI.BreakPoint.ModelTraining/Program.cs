@@ -37,6 +37,11 @@ internal class Program
             await TrainPhaseQualityModelsAsync(args);
             return;
         }
+        if (args.Contains("--generate-reference-profiles") || args.Contains("-g"))
+        {
+            await GenerateReferenceProfilesAsync(args);
+            return;
+        }
 
         var options = ParseArguments(args);
 
@@ -229,6 +234,80 @@ internal class Program
         foreach (var (phase, path) in modelPaths)
         {
             Console.WriteLine($"  {phase}: {path}");
+        }
+    }
+
+    /// <summary>
+    /// Generate reference profiles from high-quality swing data
+    /// </summary>
+    private static async Task GenerateReferenceProfilesAsync(string[] args)
+    {
+        Console.WriteLine("Generating Reference Profiles...");
+
+        var videoDir = "data";
+        var moveNetPath = "movenet/saved_model.pb";
+        var phaseClassifierPath = "swing_phase_classifier.onnx";
+        var outputPath = "models/reference_profiles.json";
+
+        int index = 0;
+        foreach (var arg in args)
+        {
+            switch (arg.ToLower())
+            {
+                case "--video-dir":
+                case "-d":
+                    videoDir = GetNextArg(args, index);
+                    break;
+                case "--movenet":
+                case "-m":
+                    moveNetPath = GetNextArg(args, index);
+                    break;
+                case "--phase-classifier":
+                case "-c":
+                    phaseClassifierPath = GetNextArg(args, index);
+                    break;
+                case "--output":
+                case "-o":
+                    outputPath = GetNextArg(args, index);
+                    break;
+            }
+            index++;
+        }
+
+        if (!Directory.Exists(videoDir))
+        {
+            throw new DirectoryNotFoundException($"Video directory not found: {videoDir}");
+        }
+
+        var datasetLoader = new TrainingDatasetLoader(new OpenCvVideoProcessingService());
+        var processedVideos = await datasetLoader.ProcessVideoDirectoryAsync(
+            videoDir,
+            moveNetPath,
+            phaseClassifierPath
+        );
+
+        if (processedVideos.Count == 0)
+        {
+            Console.WriteLine("No processed videos found. Exiting.");
+            return;
+        }
+
+        var labeledSwings = processedVideos
+            .Select(v => (v.TrainingLabel, v.SwingVideo.Swings))
+            .ToList();
+
+        var generator = new SwingReferenceProfileGenerator();
+        var profiles = generator.GenerateAllProfiles(labeledSwings);
+
+        await SwingReferenceProfileGenerator.SaveProfilesAsync(profiles, outputPath);
+
+        Console.WriteLine();
+        Console.WriteLine($"Reference profiles saved to: {outputPath}");
+        foreach (var (strokeType, profile) in profiles)
+        {
+            Console.WriteLine(
+                $"  {strokeType}: {profile.SourceVideoCount} source videos, {profile.PhaseProfiles.Count} phases"
+            );
         }
     }
 
@@ -691,9 +770,7 @@ internal class Program
         Console.WriteLine(
             "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files"
         );
-        Console.WriteLine(
-            "    --video-dir|-d <path>         Path to directory with video files"
-        );
+        Console.WriteLine("    --video-dir|-d <path>         Path to directory with video files");
         Console.WriteLine(
             "    --offset|-n <num>             Number of frames before/after to extract (default: 1)"
         );
@@ -708,18 +785,35 @@ internal class Program
         Console.WriteLine(
             "    --labeled-data|-l <path>      Path to directory with labeled frame JSON files"
         );
-        Console.WriteLine(
-            "    --video-dir|-d <path>         Path to directory with video files"
-        );
+        Console.WriteLine("    --video-dir|-d <path>         Path to directory with video files");
         Console.WriteLine(
             "    --output|-o <path>            Output directory (default: overwrites input files)"
+        );
+        Console.WriteLine();
+        Console.WriteLine("  REFERENCE PROFILE GENERATION:");
+        Console.WriteLine(
+            "    --generate-reference-profiles|-g  Generate reference profiles from high-quality swings"
+        );
+        Console.WriteLine(
+            "    --video-dir|-d <path>         Path to directory with videos and .json label files"
+        );
+        Console.WriteLine(
+            "    --movenet|-m <path>           Path to MoveNet model file (default: movenet/saved_model.pb)"
+        );
+        Console.WriteLine("    --phase-classifier|-c <path>  Path to swing phase classifier model");
+        Console.WriteLine(
+            "    --output|-o <path>            Output file path (default: models/reference_profiles.json)"
         );
         Console.WriteLine();
         Console.WriteLine("  --help|-h                       Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  # Train phase quality MLPs (4 models: prep, backswing, contact, followthrough)");
-        Console.WriteLine("  dotnet run -- -d data -m movenet/saved_model.pb -c swing_phase_classifier.onnx -o models");
+        Console.WriteLine(
+            "  # Train phase quality MLPs (4 models: prep, backswing, contact, followthrough)"
+        );
+        Console.WriteLine(
+            "  dotnet run -- -d data -m movenet/saved_model.pb -c swing_phase_classifier.onnx -o models"
+        );
         Console.WriteLine();
         Console.WriteLine("  # Train LSTM phase classifier");
         Console.WriteLine("  dotnet run -- -p -l phaseData -o models -e 100");
@@ -729,6 +823,11 @@ internal class Program
         Console.WriteLine();
         Console.WriteLine("  # Re-extract features (preserves phase labels)");
         Console.WriteLine("  dotnet run -- -r -l phasedata -d data");
+        Console.WriteLine();
+        Console.WriteLine("  # Generate reference profiles from high-quality videos");
+        Console.WriteLine(
+            "  dotnet run -- -g -d data -c swing_phase_classifier.onnx -o models/reference_profiles.json"
+        );
     }
 }
 

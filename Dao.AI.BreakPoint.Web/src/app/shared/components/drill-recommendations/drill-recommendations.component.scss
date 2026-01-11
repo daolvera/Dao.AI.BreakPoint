@@ -1,0 +1,46 @@
+.drill-recommendations {
+  .drill-card {
+    transition: all 0.2s;
+
+    &.completed {
+      opacity: 0.8;
+      background-color: #f9fafb;
+    }
+
+    &:hover {
+      box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+    }
+  }
+
+  .priority-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+
+    &.priority-1 {
+      background-color: #ef4444;
+    }
+    &.priority-2 {
+      background-color: #f97316;
+    }
+    &.priority-3 {
+      background-color: #eab308;
+    }
+  }
+
+  .phase-chip {
+    font-size: 11px;
+  }
+
+  mat-icon.text-sm {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}

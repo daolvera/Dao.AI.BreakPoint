@@ -34,12 +34,6 @@ public class AnalysisResult : UpdatableModel
     public double QualityScore { get; set; }
 
     /// <summary>
-    /// Quality score for the Preparation phase (0-100)
-    /// </summary>
-    [Range(0, 100)]
-    public int PrepScore { get; set; }
-
-    /// <summary>
     /// Quality score for the Backswing phase (0-100)
     /// </summary>
     [Range(0, 100)]

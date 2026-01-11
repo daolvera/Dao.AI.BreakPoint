@@ -15,77 +15,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatProgressBarModule,
     MatTooltipModule,
   ],
-  template: `
-    <div
-      class="phase-score-card p-4 rounded-lg border-2 transition-all"
-      [class]="getCardClasses()"
-    >
-      <!-- Phase Label -->
-      <div class="flex items-center justify-between mb-2">
-        <span class="font-medium text-gray-700">{{ label() }}</span>
-        <mat-icon [class]="getIconColor()" [matTooltip]="getTooltip()">
-          {{ getIcon() }}
-        </mat-icon>
-      </div>
-
-      <!-- Score Display -->
-      <div class="flex items-baseline gap-1 mb-2">
-        <span class="text-3xl font-bold" [class]="getScoreColor()">
-          {{ score() }}
-        </span>
-        <span class="text-sm text-gray-500">/100</span>
-      </div>
-
-      <!-- Progress Bar -->
-      <mat-progress-bar
-        [value]="score()"
-        [color]="getProgressColor()"
-        mode="determinate"
-        class="rounded"
-      ></mat-progress-bar>
-
-      <!-- Grade Label -->
-      <p class="text-xs text-gray-500 mt-1 text-right">
-        {{ getGrade() }}
-      </p>
-    </div>
-  `,
-  styles: [
-    `
-      .phase-score-card {
-        min-width: 140px;
-
-        &.excellent {
-          border-color: #22c55e;
-          background-color: #f0fdf4;
-        }
-
-        &.good {
-          border-color: #84cc16;
-          background-color: #f7fee7;
-        }
-
-        &.fair {
-          border-color: #eab308;
-          background-color: #fefce8;
-        }
-
-        &.needs-work {
-          border-color: #f97316;
-          background-color: #fff7ed;
-        }
-
-        &.poor {
-          border-color: #ef4444;
-          background-color: #fef2f2;
-        }
-
-        &.is-worst {
-          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
-        }
-      }
-    `,
-  ],
+  templateUrl: './phase-score-card.component.html',
+  styleUrl: './phase-score-card.component.scss',
 })
 export class PhaseScoreCardComponent {
   /** Phase label (e.g., "Preparation", "Backswing") */

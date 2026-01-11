@@ -29,6 +29,16 @@ public class PlayerService(IPlayerRepository playerRepository) : IPlayerService
         return true;
     }
 
+    public async Task<bool> UpdateUstaRatingAsync(int playerId, UpdateUstaRatingRequest request)
+    {
+        Player player =
+            await playerRepository.GetByIdAsync(playerId)
+            ?? throw new NotFoundException($"Player with Id {playerId}");
+        player.UstaRating = request.UstaRating;
+        await playerRepository.UpdateAsync(player, player.AppUser?.Id);
+        return true;
+    }
+
     public async Task<bool> DeleteAsync(int id)
     {
         return await playerRepository.DeleteItemAsync(id);

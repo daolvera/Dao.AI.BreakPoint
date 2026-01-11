@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IAnalysisResultRepository, AnalysisResultRepository>();
         services.AddScoped<ICoachingService, CoachingService>();
         services.AddScoped<IDrillRecommendationService, DrillRecommendationService>();
+        services.AddScoped<IDrillRecommendationRepository, DrillRecommendationRepository>();
         return services;
     }
 
@@ -70,6 +71,9 @@ public static class ServiceCollectionExtensions
                 options.ReferenceProfilesPath = ResolveModelPath(options.ReferenceProfilesPath);
             }
         });
+
+        // Configure Coaching options
+        services.Configure<CoachingOptions>(configuration.GetSection(CoachingOptions.SectionName));
 
         services.AddSingleton<ISkeletonOverlayService, SkeletonOverlayService>();
         services.AddScoped<ISwingAnalyzerService, SwingAnalyzerService>();

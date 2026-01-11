@@ -11,6 +11,7 @@ public interface IPlayerService
     Task<IEnumerable<PlayerDto>> SearchAsync(PlayerSearchRequest playerSearchParameters);
     Task<PlayerWithStatsDto?> GetWithStatsAsync(int id);
     Task<bool> CompleteAsync(CompleteProfileRequest completeProfileRequest, string appUserId);
+    Task<bool> UpdateUstaRatingAsync(int playerId, UpdateUstaRatingRequest request);
     Task<int> CreateAsync(CreatePlayerDto createPlayerDto, string? appUserId);
     Task<bool> UpdateAsync(int id, CreatePlayerDto createPlayerDto, string? appUserId);
     Task<bool> DeleteAsync(int id);

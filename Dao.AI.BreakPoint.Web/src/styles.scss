@@ -71,3 +71,71 @@ button, a {
   --mdc-snackbar-supporting-text-color: #ffffff;
   --mat-snack-bar-button-color: #ffffff;
 }
+
+// Fix icon centering in buttons throughout the app
+.mat-mdc-button,
+.mat-mdc-raised-button,
+.mat-mdc-stroked-button,
+.mat-mdc-flat-button,
+.mat-mdc-outlined-button,
+.mat-mdc-unelevated-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem;
+
+  .mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    vertical-align: middle;
+  }
+}
+
+// Fix icon button centering
+.mat-mdc-icon-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  .mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Fix mini-fab icon centering
+.mat-mdc-mini-fab {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  .mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Fix fab icon centering
+.mat-mdc-fab {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  .mat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+// Utility class for buttons with icons
+.btn-with-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.5rem;
+}

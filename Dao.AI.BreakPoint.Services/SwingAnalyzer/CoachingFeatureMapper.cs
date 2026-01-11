@@ -288,14 +288,6 @@ public static class CoachingFeatureMapper
         // Phase-specific tips based on common issues
         return (phase, featureIndex, direction) switch
         {
-            // Preparation phase tips
-            (SwingPhase.Preparation, 8, "too low") =>
-                "Turn your shoulders more during preparation. Think 'turn and load'.",
-            (SwingPhase.Preparation, 11, "too high") =>
-                "Bend your knees more to get in a ready position.",
-            (SwingPhase.Preparation, 5, _) =>
-                "Start your hip rotation earlier to initiate the kinetic chain.",
-
             // Backswing phase tips
             (SwingPhase.Backswing, 0, "too low") =>
                 "Take a fuller backswing to generate more racket head speed.",

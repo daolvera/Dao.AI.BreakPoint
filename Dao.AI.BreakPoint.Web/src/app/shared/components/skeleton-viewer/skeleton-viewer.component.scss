@@ -1,0 +1,23 @@
+.skeleton-viewer {
+  .viewer-container {
+    position: relative;
+
+    img {
+      max-height: 400px;
+      object-fit: contain;
+    }
+
+    .toggle-btn {
+      opacity: 0.9;
+      transition: opacity 0.2s;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+
+  .placeholder {
+    min-height: 200px;
+  }
+}

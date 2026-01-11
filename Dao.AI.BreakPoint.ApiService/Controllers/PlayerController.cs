@@ -1,5 +1,6 @@
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.DTOs;
+using Dao.AI.BreakPoint.Services.Requests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -52,6 +53,16 @@ public class PlayerController(IPlayerService playerService) : ControllerBase
     public async Task<IActionResult> UpdatePlayer(int id, CreatePlayerDto updatedPlayer)
     {
         var result = await playerService.UpdateAsync(id, updatedPlayer, "1");
+        return Ok(result);
+    }
+
+    [HttpPatch("{id:int}/rating")]
+    [ProducesResponseType(typeof(bool), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateUstaRating(int id, UpdateUstaRatingRequest request)
+    {
+        var result = await playerService.UpdateUstaRatingAsync(id, request);
         return Ok(result);
     }
 

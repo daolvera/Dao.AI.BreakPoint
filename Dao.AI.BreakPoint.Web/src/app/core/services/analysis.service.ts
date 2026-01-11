@@ -109,7 +109,7 @@ export class AnalysisService {
    * Delete an analysis request
    */
   deleteRequest(id: number): Observable<void> {
-    return this.http.delete<void>(`api/Analysis/request/${id}`).pipe(
+    return this.http.delete<void>(`api/Analysis/${id}`).pipe(
       tap(() => {
         this.pendingRequests.update((requests) =>
           requests.filter((r) => r.id !== id)

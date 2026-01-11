@@ -29,7 +29,10 @@ import {
   SwingPhase,
   SwingPhaseLabels,
 } from '../../core/models/enums/swing-phase.enum';
-import { SwingType } from '../../core/models/enums/swing-type.enum';
+import {
+  SwingType,
+  SwingTypeLabels,
+} from '../../core/models/enums/swing-type.enum';
 import { AnalysisService } from '../../core/services/analysis.service';
 import { DrillService } from '../../core/services/drill.service';
 import { SignalRService } from '../../core/services/signalr.service';
@@ -94,11 +97,6 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
     if (!res?.phaseScores) return [];
     return [
       {
-        phase: SwingPhase.Preparation,
-        score: res.phaseScores.preparation,
-        label: 'Preparation',
-      },
-      {
         phase: SwingPhase.Backswing,
         score: res.phaseScores.backswing,
         label: 'Backswing',
@@ -144,7 +142,7 @@ export class AnalysisResultsComponent implements OnInit, OnDestroy {
 
   // Constants for template
   protected AnalysisStatus = AnalysisStatus;
-  protected SwingTypes = SwingType;
+  protected SwingTypeLabels = SwingTypeLabels;
   protected SwingPhaseLabels = SwingPhaseLabels;
 
   ngOnInit(): void {

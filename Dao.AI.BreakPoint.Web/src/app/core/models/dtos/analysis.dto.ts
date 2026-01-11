@@ -21,7 +21,6 @@ export interface AnalysisRequestDto {
  * Phase-specific quality scores
  */
 export interface PhaseScoresDto {
-  preparation: number;
   backswing: number;
   contact: number;
   followThrough: number;
@@ -89,7 +88,6 @@ export interface AnalysisResultDto {
   phaseScores: PhaseScoresDto;
   phaseDeviations: PhaseDeviationDto[];
   drillRecommendations: DrillRecommendationDto[];
-  coachingTips: string[];
   skeletonOverlayUrl?: string;
   skeletonOverlayGifUrl?: string;
   videoBlobUrl?: string;

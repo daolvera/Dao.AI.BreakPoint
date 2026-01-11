@@ -17,7 +17,7 @@ public class AzureOpenAIOptions
     /// <summary>
     /// The deployment name for the chat completion model
     /// </summary>
-    public string DeploymentName { get; set; } = "gpt-4";
+    public string DeploymentName { get; set; } = "gpt-4.1-mini";
 
     /// <summary>
     /// Maximum tokens for the response

@@ -1,0 +1,134 @@
+<div
+  class="settings-container min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
+>
+  <div class="max-w-2xl mx-auto">
+    <!-- Back Button -->
+    <a
+      routerLink="/dashboard"
+      class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
+    >
+      <mat-icon class="mr-2">arrow_back</mat-icon>
+      Back to Dashboard
+    </a>
+
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Settings</h1>
+      <p class="text-gray-600 mt-2">
+        Manage your player profile and preferences
+      </p>
+    </div>
+
+    @if (isLoading()) {
+    <div class="flex justify-center py-12">
+      <mat-progress-spinner
+        diameter="40"
+        mode="indeterminate"
+      ></mat-progress-spinner>
+    </div>
+    } @else {
+    <!-- USTA Rating Card -->
+    <mat-card class="mb-6">
+      <mat-card-header class="pb-2">
+        <mat-card-title class="flex items-center gap-2 text-xl">
+          <mat-icon class="text-primary-600">sports_tennis</mat-icon>
+          USTA NTRP Rating
+        </mat-card-title>
+        <mat-card-subtitle>
+          Update your official USTA rating as you improve
+        </mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content class="pt-4">
+        @if (currentRating()) {
+        <div class="mb-4 p-4 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-500 mb-1">Current Rating</p>
+          <p class="text-2xl font-bold text-primary-600">
+            {{ currentRating() | number : "1.1-1" }}
+          </p>
+        </div>
+        }
+
+        <form
+          [formGroup]="ratingForm"
+          (ngSubmit)="onSubmit()"
+          class="space-y-4"
+        >
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>New USTA Rating</mat-label>
+            <input
+              matInput
+              type="number"
+              formControlName="ustaRating"
+              placeholder="Enter your USTA rating (1-7)"
+              min="1"
+              max="7"
+              step="0.5"
+            />
+            <mat-icon matPrefix class="mr-2">star</mat-icon>
+            <a
+              matSuffix
+              [href]="ustaRatingInfoUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              matTooltip="Click to learn about USTA NTRP ratings"
+              matTooltipPosition="above"
+              class="rating-info-link"
+            >
+              <mat-icon class="text-primary-600 cursor-pointer">info</mat-icon>
+            </a>
+            <mat-hint>Rating should be between 1.0 and 7.0</mat-hint>
+            @if (ratingForm.controls.ustaRating.hasError('required') &&
+            ratingForm.controls.ustaRating.touched) {
+            <mat-error>USTA Rating is required</mat-error>
+            } @if (ratingForm.controls.ustaRating.hasError('min')) {
+            <mat-error>Rating must be at least 1</mat-error>
+            } @if (ratingForm.controls.ustaRating.hasError('max')) {
+            <mat-error>Rating cannot exceed 7</mat-error>
+            }
+          </mat-form-field>
+
+          <div class="flex justify-end">
+            <button
+              mat-raised-button
+              color="primary"
+              type="submit"
+              [disabled]="isSaving() || ratingForm.invalid"
+            >
+              @if (isSaving()) {
+              <mat-progress-spinner
+                diameter="20"
+                mode="indeterminate"
+                class="inline-block mr-2"
+              ></mat-progress-spinner>
+              Saving... } @else {
+              <ng-container>
+                <mat-icon class="mr-2">save</mat-icon>
+                Update Rating
+              </ng-container>
+              }
+            </button>
+          </div>
+        </form>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Additional Settings Placeholder -->
+    <mat-card class="opacity-60">
+      <mat-card-header>
+        <mat-card-title class="flex items-center gap-2 text-xl">
+          <mat-icon class="text-gray-400">tune</mat-icon>
+          More Settings
+        </mat-card-title>
+        <mat-card-subtitle>Additional settings coming soon</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content class="pt-4">
+        <p class="text-gray-500 text-sm">
+          Profile customization, notification preferences, and more features
+          will be available here in future updates.
+        </p>
+      </mat-card-content>
+    </mat-card>
+    }
+  </div>
+</div>

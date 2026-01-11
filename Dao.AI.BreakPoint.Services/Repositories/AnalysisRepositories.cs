@@ -81,9 +81,13 @@ public class AnalysisResultRepository
 
     public async Task<AnalysisResult?> GetByRequestIdAsync(int requestId)
     {
-        return await DbContext.AnalysisResults.FirstOrDefaultAsync(r =>
-            r.AnalysisRequestId == requestId
-        );
+        return await DbContext.AnalysisResults
+            .Include(r => r.DrillRecommendations)
+            .Include(r => r.PhaseDeviations)
+            .Include(r => r.Player)
+            .FirstOrDefaultAsync(r =>
+                r.AnalysisRequestId == requestId
+            );
     }
 
     public async Task<IEnumerable<AnalysisResult>> GetByPlayerIdAsync(

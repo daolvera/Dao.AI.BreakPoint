@@ -19,6 +19,15 @@ export class PlayerService {
     return this.http.get<PlayerWithStatsDto>(`api/player/${playerId}/details`);
   }
 
+  public updateUstaRating(
+    playerId: number,
+    ustaRating: number
+  ): Observable<boolean> {
+    return this.http.patch<boolean>(`api/player/${playerId}/rating`, {
+      ustaRating,
+    });
+  }
+
   public deletePlayerVideo(
     playerId: number,
     videoId: string

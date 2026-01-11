@@ -35,7 +35,7 @@
     <div class="flex justify-between items-start mb-6">
       <div>
         <h1 class="text-3xl font-bold text-gray-900">
-          {{ SwingTypes[req.strokeType] }} Analysis
+          {{ SwingTypeLabels[req.strokeType] }} Analysis
         </h1>
         <p class="text-gray-500 mt-1">
           Analyzed {{ req.createdAt | date : "medium" }}
@@ -130,7 +130,7 @@
         Phase-by-Phase Breakdown
       </h2>
       <p class="text-gray-600 mb-4">
-        Your swing is analyzed across four key phases. Focus on the
+        Your swing is analyzed across three key phases. Focus on the
         lowest-scoring phase to improve fastest.
       </p>
 
@@ -199,33 +199,6 @@
         [drills]="res.drillRecommendations"
         (drillUpdated)="onDrillFeedback($event)"
       ></app-drill-recommendations>
-    </mat-card>
-    }
-
-    <!-- Coaching Tips -->
-    @if (res.coachingTips && res.coachingTips.length > 0) {
-    <mat-card class="mb-6 p-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">
-        <mat-icon class="align-middle mr-2 text-primary-500"
-          >sports_tennis</mat-icon
-        >
-        AI Coaching Tips
-      </h2>
-
-      <div class="space-y-4">
-        @for (tip of res.coachingTips; track $index) {
-        <div
-          class="coaching-tip flex items-start gap-3 p-4 bg-gray-50 rounded-lg"
-        >
-          <div
-            class="tip-number flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-bold"
-          >
-            {{ $index + 1 }}
-          </div>
-          <p class="text-gray-700 flex-grow">{{ tip }}</p>
-        </div>
-        }
-      </div>
     </mat-card>
     }
 

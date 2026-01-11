@@ -42,8 +42,8 @@ import { VideoUploadService } from '../../../core/services/video-upload.service'
           <p>Drag and drop your video here or click to select</p>
           <p class="upload-requirements">
             • Supported formats: MP4, WebM, OGG, MOV, AVI<br />
-            • Maximum duration: 30 seconds<br />
-            • Maximum size: 50MB
+            • Maximum duration: 60 seconds<br />
+            • Maximum size: 100MB
           </p>
 
           <input

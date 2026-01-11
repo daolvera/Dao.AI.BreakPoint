@@ -1,0 +1,11 @@
+.settings-container {
+  .rating-info-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+
+    &:hover mat-icon {
+      color: #1976d2;
+    }
+  }
+}

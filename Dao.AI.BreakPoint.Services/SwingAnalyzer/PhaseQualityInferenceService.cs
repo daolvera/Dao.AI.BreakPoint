@@ -553,37 +553,6 @@ public class PhaseQualityResult
     public double OverallScore { get; set; }
 
     public Dictionary<SwingPhase, SinglePhaseResult> PhaseResults { get; set; } = [];
-
-    public double PrepScore => PhaseResults.GetValueOrDefault(SwingPhase.Preparation)?.Score ?? 0;
-    public double BackswingScore =>
-        PhaseResults.GetValueOrDefault(SwingPhase.Backswing)?.Score ?? 0;
-    public double ContactScore => PhaseResults.GetValueOrDefault(SwingPhase.Contact)?.Score ?? 0;
-    public double FollowThroughScore =>
-        PhaseResults.GetValueOrDefault(SwingPhase.FollowThrough)?.Score ?? 0;
-
-    /// <summary>
-    /// Get top N deviations across all phases for coaching focus
-    /// </summary>
-    public List<FeatureDeviation> GetTopDeviations(int topN = 5)
-    {
-        return PhaseResults
-            .Values.SelectMany(r =>
-                r.Deviations.Select(d => new FeatureDeviation
-                {
-                    FeatureIndex = d.FeatureIndex,
-                    FeatureName = d.FeatureName,
-                    CoachingTerm = d.CoachingTerm,
-                    ActualValue = d.ActualValue,
-                    ReferenceValue = d.ReferenceValue,
-                    ZScore = d.ZScore,
-                    Direction = d.Direction,
-                    Phase = r.Phase,
-                })
-            )
-            .OrderByDescending(d => Math.Abs(d.ZScore))
-            .Take(topN)
-            .ToList();
-    }
 }
 
 /// <summary>

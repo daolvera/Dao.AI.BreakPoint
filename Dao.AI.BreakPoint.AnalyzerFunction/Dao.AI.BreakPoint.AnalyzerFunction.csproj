@@ -28,7 +28,7 @@
 
   <!-- Include ONNX models as content files for deployment -->
   <ItemGroup>
-    <Content Include="..\Dao.AI.BreakPoint.Models\*.onnx" Link="models\%(Filename)%(Extension)">
+    <Content Include="..\Dao.AI.BreakPoint.Models\*" Link="models\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

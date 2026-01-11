@@ -16,9 +16,11 @@ public class SwingAnalyzerService(
     ICoachingService CoachingService,
     IPlayerRepository PlayerRepository,
     IAnalysisRequestRepository AnalysisRequestRepository,
+    IDrillRecommendationRepository DrillRecommendationRepository,
     IOptions<MoveNetOptions> MoveNetOptions,
     IOptions<SwingPhaseClassifierOptions> PhaseClassifierOptions,
-    IOptions<SwingQualityModelOptions> SwingQualityOptions
+    IOptions<SwingQualityModelOptions> SwingQualityOptions,
+    IOptions<CoachingOptions> CoachingOpts
 ) : ISwingAnalyzerService
 {
     public async Task AnalyzeSwingAsync(Stream videoStream, AnalysisRequest analysisRequest)
@@ -89,9 +91,7 @@ public class SwingAnalyzerService(
         // Populate the result with quality scores
         analysisRequest.Result.QualityScore = bestResult.OverallScore;
 
-        // Populate phase scores
-        if (bestResult.PhaseResults.TryGetValue(SwingPhase.Preparation, out var prepResult))
-            analysisRequest.Result.PrepScore = (int)prepResult.Score;
+        // Populate phase scores (Preparation phase is not scored)
         if (bestResult.PhaseResults.TryGetValue(SwingPhase.Backswing, out var backswingResult))
             analysisRequest.Result.BackswingScore = (int)backswingResult.Score;
         if (bestResult.PhaseResults.TryGetValue(SwingPhase.Contact, out var contactResult))
@@ -99,26 +99,84 @@ public class SwingAnalyzerService(
         if (bestResult.PhaseResults.TryGetValue(SwingPhase.FollowThrough, out var followResult))
             analysisRequest.Result.FollowThroughScore = (int)followResult.Score;
 
-        // Collect all feature deviations for coaching
-        var allDeviations = bestResult
-            .PhaseResults.Values.SelectMany(p => p.Deviations)
-            .OrderByDescending(d => Math.Abs(d.ZScore))
+        // Build phase analyses from the quality results for drill recommendations
+        var phaseAnalyses = bestResult
+            .PhaseResults.Where(p => p.Value.FrameCount > 0)
+            .Select(p => new PhaseAnalysisInput(
+                Phase: p.Key,
+                Score: (int)p.Value.Score,
+                Deviations: p.Value.Deviations.ToDictionary(
+                    d => d.FeatureName,
+                    d => (double)d.ZScore
+                )
+            ))
             .ToList();
 
-        // Map feature deviations to coaching feature importance for backward compatibility
-        var featureImportance = CoachingFeatureMapper.MapDeviationsToFeatureImportance(
-            allDeviations
+        // Fetch recent drills for context
+        var coachingOptions = CoachingOpts.Value;
+        var recentDrills = await DrillRecommendationRepository.GetRecentDrillsAsync(
+            analysisRequest.PlayerId,
+            coachingOptions.RecentDrillsCount
         );
 
-        // Generate coaching tips using AI coaching service
+        // Generate drill recommendations using AI coaching service
         var ustaRating = player?.UstaRating ?? 3.0; // Default to intermediate
-        var coachingTips = await CoachingService.GenerateCoachingTipsAsync(
-            analysisRequest.StrokeType,
-            bestResult.OverallScore,
-            featureImportance,
-            ustaRating
+        var drillInput = new DrillRecommendationInput(
+            PlayerId: analysisRequest.PlayerId,
+            StrokeType: analysisRequest.StrokeType,
+            UstaRating: ustaRating,
+            OverallQualityScore: (int)bestResult.OverallScore,
+            PhaseAnalyses: phaseAnalyses,
+            RecentDrills: recentDrills,
+            PlayerHistorySummary: player?.TrainingHistorySummary,
+            MaxDrills: coachingOptions.MaxDrillsPerAnalysis
         );
-        analysisRequest.Result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
+
+        var generatedDrills = await CoachingService.GenerateDrillRecommendationsAsync(drillInput);
+
+        // Convert generated drills to DrillRecommendation entities
+        foreach (var drill in generatedDrills)
+        {
+            analysisRequest.Result.DrillRecommendations.Add(
+                new Data.Models.DrillRecommendation
+                {
+                    PlayerId = analysisRequest.PlayerId,
+                    TargetPhase = drill.TargetPhase,
+                    TargetFeature = drill.TargetFeature,
+                    DrillName = drill.DrillName,
+                    Description = drill.Description,
+                    SuggestedDuration = drill.SuggestedDuration,
+                    Priority = drill.Priority,
+                    IsActive = true,
+                }
+            );
+        }
+
+        // Generate and update the player's training history summary
+        if (player != null && generatedDrills.Count > 0)
+        {
+            var historyInput = new TrainingHistoryInput(
+                PlayerName: player.Name,
+                UstaRating: ustaRating,
+                StrokeType: analysisRequest.StrokeType,
+                OverallQualityScore: (int)bestResult.OverallScore,
+                NewDrills: generatedDrills,
+                PreviousHistorySummary: player.TrainingHistorySummary
+            );
+
+            var newSummary = await CoachingService.GenerateTrainingHistorySummaryAsync(
+                historyInput
+            );
+
+            // Truncate if needed to keep within limits
+            if (newSummary.Length > coachingOptions.MaxHistorySummaryLength)
+            {
+                newSummary = newSummary[..coachingOptions.MaxHistorySummaryLength];
+            }
+
+            player.TrainingHistorySummary = newSummary;
+            await PlayerRepository.UpdateAsync(player, analysisRequest.CreatedByAppUserId);
+        }
 
         // Generate skeleton overlay GIF for the best swing
         await GenerateAndUploadSkeletonOverlayAsync(
@@ -182,7 +240,7 @@ public class SwingAnalyzerService(
                 result.OverallScore,
                 videoWidth,
                 videoHeight,
-                frameDelayMs: 50 // ~20 FPS
+                frameDelayMs: 150 // ~6.7 FPS - slower for better analysis viewing
             );
 
             if (gifBytes.Length == 0)

@@ -235,13 +235,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case AnalysisStatus.Requested:
         return 'schedule';
       case AnalysisStatus.InProgress:
-        return 'pending';
+        return 'hourglass_empty';
       case AnalysisStatus.Completed:
         return 'check_circle';
       case AnalysisStatus.Failed:
         return 'error';
       default:
         return 'help';
+    }
+  }
+
+  protected getStatusLabel(status: AnalysisStatus): string {
+    switch (status) {
+      case AnalysisStatus.Requested:
+        return 'Queued';
+      case AnalysisStatus.InProgress:
+        return 'Analyzing';
+      case AnalysisStatus.Completed:
+        return 'Completed';
+      case AnalysisStatus.Failed:
+        return 'Failed';
+      default:
+        return 'Unknown';
     }
   }
 

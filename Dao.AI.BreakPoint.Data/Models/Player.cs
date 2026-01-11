@@ -58,4 +58,10 @@ public class Player : UpdatableModel
     /// Completed analysis results for this player (historical record)
     /// </summary>
     public virtual ICollection<AnalysisResult> AnalysisResults { get; set; } = [];
+
+    /// <summary>
+    /// AI-generated summary of the player's training history and progress.
+    /// Updated after each analysis to track improvements and patterns.
+    /// </summary>
+    public string? TrainingHistorySummary { get; set; }
 }

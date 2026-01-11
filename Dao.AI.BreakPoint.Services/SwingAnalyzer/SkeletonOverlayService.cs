@@ -202,9 +202,10 @@ public class SkeletonOverlayService : ISkeletonOverlayService
         bool highlightFrame = false
     )
     {
-        // Scale factors for coordinate conversion
-        float scaleX = frame.Width / (float)originalWidth;
-        float scaleY = frame.Height / (float)originalHeight;
+        // Joint coordinates are normalized (0-1), so multiply directly by frame dimensions
+        // The frame may be resized for GIF, so we use the actual frame dimensions
+        int frameWidth = frame.Width;
+        int frameHeight = frame.Height;
 
         // Draw bones first (so joints appear on top)
         foreach (var (joint1Idx, joint2Idx) in SkeletonConnections)
@@ -218,14 +219,8 @@ public class SkeletonOverlayService : ISkeletonOverlayService
             if (joint1.Confidence < MinConfidence || joint2.Confidence < MinConfidence)
                 continue;
 
-            var pt1 = new CvPoint(
-                (int)(joint1.X * originalWidth * scaleX),
-                (int)(joint1.Y * originalHeight * scaleY)
-            );
-            var pt2 = new CvPoint(
-                (int)(joint2.X * originalWidth * scaleX),
-                (int)(joint2.Y * originalHeight * scaleY)
-            );
+            var pt1 = new CvPoint((int)(joint1.X * frameWidth), (int)(joint1.Y * frameHeight));
+            var pt2 = new CvPoint((int)(joint2.X * frameWidth), (int)(joint2.Y * frameHeight));
 
             // Color bone based on whether either joint is problematic
             Scalar boneColor =
@@ -243,10 +238,7 @@ public class SkeletonOverlayService : ISkeletonOverlayService
             if (joint.Confidence < MinConfidence)
                 continue;
 
-            var center = new CvPoint(
-                (int)(joint.X * originalWidth * scaleX),
-                (int)(joint.Y * originalHeight * scaleY)
-            );
+            var center = new CvPoint((int)(joint.X * frameWidth), (int)(joint.Y * frameHeight));
 
             // Determine joint color
             Scalar color;

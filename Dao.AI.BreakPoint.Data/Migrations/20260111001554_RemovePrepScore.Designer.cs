@@ -3,6 +3,7 @@ using System;
 using Dao.AI.BreakPoint.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Dao.AI.BreakPoint.Data.Migrations
 {
     [DbContext(typeof(BreakPointDbContext))]
-    partial class BreakPointDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260111001554_RemovePrepScore")]
+    partial class RemovePrepScore
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -69,15 +69,4 @@ public class AnalysisProcessingService(
 
         return result;
     }
-
-    public async Task SaveCoachingTipsAsync(int analysisResultId, List<string> coachingTips)
-    {
-        var result =
-            await analysisResultRepository.GetByIdAsync(analysisResultId)
-            ?? throw new NotFoundException($"Analysis result with ID {analysisResultId}");
-
-        result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
-
-        await analysisResultRepository.UpdateAsync(result, appUserId: null);
-    }
 }
