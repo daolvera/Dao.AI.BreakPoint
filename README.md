@@ -14,8 +14,6 @@ This project showcases enterprise practices in a real application, featuring a c
 
 ## Architecture
 
-<!-- TODO: Add architecture diagram -->
-
 The application is built on .NET Aspire, orchestrating multiple services in a distributed architecture.
 
 ### Solution Structure
