@@ -57,7 +57,7 @@
       ></mat-progress-spinner>
       <span class="text-blue-700">Connecting for live updates...</span>
     </div>
-    } @else if (!signalRService.connectionState().connected) {
+    } @else if (!signalRService.connectionState().connected && needsSignalR()) {
     <div class="mb-4 p-3 bg-yellow-50 rounded-lg flex items-center gap-2">
       <mat-icon class="text-yellow-600">warning</mat-icon>
       <span class="text-yellow-700"

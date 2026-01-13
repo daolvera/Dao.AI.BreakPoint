@@ -65,6 +65,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     SwingType.ForehandGroundStroke
   );
   protected isConnecting = signal(false);
+  protected needsSignalR = signal(false);
 
   // Player data
   protected playerWithStats = signal<PlayerWithStatsDto | null>(null);
@@ -154,6 +155,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     if (this.signalRService.connectionState().connected) {
       return;
     }
+    this.needsSignalR.set(true);
 
     const pid = this.playerId();
     if (!pid) return;
@@ -167,18 +169,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.signalRService.analysisCompleted$
         .pipe(takeUntil(this.destroy$))
         .subscribe((result: AnalysisResultDto) => {
-          console.log('SignalR: AnalysisCompleted received', result);
           this.analysisService.updateResultFromNotification(result);
         });
 
       this.signalRService.analysisStatusChanged$
         .pipe(takeUntil(this.destroy$))
         .subscribe((request: AnalysisRequestDto) => {
-          console.log('SignalR: AnalysisStatusChanged received', request);
           this.analysisService.updateRequestFromNotification(request);
         });
-
-      console.log('SignalR connected and subscribed for player:', pid);
     } catch (error) {
       console.error('Failed to connect SignalR:', error);
     } finally {
@@ -219,7 +217,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.showUploadDialog.set(false);
-          console.log('Video uploaded, waiting for SignalR updates...');
         },
         error: (err) => {
           console.error('Upload failed:', err);

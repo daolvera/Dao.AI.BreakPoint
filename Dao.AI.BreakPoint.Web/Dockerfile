@@ -33,4 +33,5 @@ ENV API_URL=http://localhost:5000
 EXPOSE 80
 
 # Use envsubst to substitute environment variables at startup
-CMD ["/bin/sh", "-c", "export API_URL=${services__breakpointapi__http__0:-$API_URL} && envsubst '${PORT} ${API_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]
+# Use HTTP for internal container-to-container communication
+CMD ["/bin/sh", "-c", "echo 'Aspire API HTTP env: '${services__breakpointapi__http__0:-'not set'}; export API_URL=${services__breakpointapi__http__0:-$API_URL}; echo 'Using API_URL: '$API_URL; envsubst '${PORT} ${API_URL}' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && cat /etc/nginx/nginx.conf && nginx -g 'daemon off;'"]

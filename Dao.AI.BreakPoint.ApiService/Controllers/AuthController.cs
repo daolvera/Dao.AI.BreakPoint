@@ -189,20 +189,25 @@ public class AuthController(
 
     private void SetSecureTokenCookies(TokenResponse tokens)
     {
+        // Get shared domain for cross-subdomain cookies (e.g., .politedune-xxx.westus.azurecontainerapps.io)
+        var cookieDomain = GetSharedCookieDomain();
+
         var cookieOptions = new CookieOptions
         {
             HttpOnly = true, // Prevents JavaScript access
             Secure = true, // HTTPS only
-            SameSite = SameSiteMode.Strict, // CSRF protection
+            SameSite = SameSiteMode.Lax, // Allows redirects from OAuth provider
             Expires = tokens.ExpiresAt,
+            Domain = cookieDomain,
         };
 
         var refreshCookieOptions = new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Strict,
+            SameSite = SameSiteMode.Lax, // Allows redirects from OAuth provider
             Expires = DateTime.UtcNow.AddDays(7), // Refresh token expires in 7 days
+            Domain = cookieDomain,
         };
 
         // Set access token cookie
@@ -225,9 +230,27 @@ public class AuthController(
             new CookieOptions
             {
                 Secure = true,
-                SameSite = SameSiteMode.Strict,
+                SameSite = SameSiteMode.Lax, // Allows redirects from OAuth provider
                 Expires = tokens.ExpiresAt,
+                Domain = cookieDomain,
             }
         );
+    }
+
+    private string? GetSharedCookieDomain()
+    {
+        var host = Request.Host.Host;
+        // For localhost, don't set domain (cookies work on same origin)
+        if (host == "localhost" || host == "127.0.0.1")
+            return null;
+
+        // Extract parent domain: breakpointapi.politedune-xxx.westus.azurecontainerapps.io
+        // becomes .politedune-xxx.westus.azurecontainerapps.io
+        var parts = host.Split('.');
+        if (parts.Length > 1)
+        {
+            return "." + string.Join(".", parts.Skip(1));
+        }
+        return null;
     }
 }

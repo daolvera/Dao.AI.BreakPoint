@@ -32,6 +32,7 @@ var breakPointApi = builder
     .WithReference(blobStorage)
     .WithReference(insights)
     .WithReference(keyVault)
+    .WithExternalHttpEndpoints() // Required for OAuth callbacks
     .WithHttpHealthCheck("/health");
 
 // Azure Function (Swing Analyzer)
@@ -54,7 +55,8 @@ var breakPointApp = builder
     .WithHttpEndpoint(port: 3000, env: "PORT")
     .WithExternalHttpEndpoints()
     .WithNpm(installCommand: "ci")
-    .PublishAsDockerFile();
+    .PublishAsDockerFile()
+    .WithHttpHealthCheck("/health");
 
 var frontendHttpEndpoint = breakPointApp.GetEndpoint("http");
 

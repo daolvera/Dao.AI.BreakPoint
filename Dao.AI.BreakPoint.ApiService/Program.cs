@@ -30,21 +30,28 @@ builder.Services.AddCors(options =>
         "AllowAngularApp",
         policy =>
         {
-            policy
-                .WithOrigins(
-                    builder.Configuration["BreakPointAppUrl"]
-                        ?? throw new InvalidConfigurationException(
-                            "BreakPointAppUrl is not configured"
-                        )
-                )
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials(); // Required for SignalR
+            var appUrl =
+                builder.Configuration["BreakPointAppUrl"]
+                ?? throw new InvalidConfigurationException("BreakPointAppUrl is not configured");
+
+            // Allow both http and https versions (Azure Container Apps uses https publicly)
+            var origins = new List<string> { appUrl };
+            if (appUrl.StartsWith("http://"))
+            {
+                origins.Add(appUrl.Replace("http://", "https://"));
+            }
+
+            policy.WithOrigins([.. origins]).AllowAnyMethod().AllowAnyHeader().AllowCredentials(); // Required for SignalR
         }
     );
 });
 
 builder.Services.AddControllers();
+builder.Services.AddRouting(options =>
+{
+    options.LowercaseUrls = false;
+    options.AppendTrailingSlash = false;
+});
 builder.Services.AddBreakPointServices();
 builder.Services.AddBreakPointIdentityServices();
 builder.Services.AddAnalysisServices();
