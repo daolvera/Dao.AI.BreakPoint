@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="Azure.Storage.Blobs" Version="12.26.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0-preview.6.25309.8" />
     <PackageReference Include="Microsoft.ML" Version="5.0.0" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime.Managed" Version="1.23.2" />
@@ -19,6 +20,7 @@
     <PackageReference Include="TensorFlow.NET" Version="0.150.0" />
     <PackageReference Include="TensorFlow.Keras" Version="0.15.0" />
     <PackageReference Include="SciSharp.TensorFlow.Redist" Version="2.16.0" />
+    <PackageReference Include="TorchSharp-cpu" Version="0.103.0" />
   </ItemGroup>
 
   <ItemGroup>

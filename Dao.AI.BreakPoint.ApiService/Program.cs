@@ -3,13 +3,26 @@ using Dao.AI.BreakPoint.ApiService.Hubs;
 using Dao.AI.BreakPoint.ApiService.Services;
 using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Services;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Protocols.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure forwarded headers for reverse proxy (Azure Container Apps)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    // Clear known networks/proxies to trust all proxies (needed for Azure Container Apps)
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
+
+// Add Azure Key Vault secrets as configuration provider (Aspire extension)
+builder.Configuration.AddAzureKeyVaultSecrets("keyvault");
 
 builder.Services.AddCors(options =>
 {
@@ -17,36 +30,36 @@ builder.Services.AddCors(options =>
         "AllowAngularApp",
         policy =>
         {
-            policy
-                .WithOrigins(
-                    builder.Configuration["BreakPointAppUrl"]
-                        ?? throw new InvalidConfigurationException(
-                            "BreakPointAppUrl is not configured"
-                        )
-                )
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials(); // Required for SignalR
+            var appUrl =
+                builder.Configuration["BreakPointAppUrl"]
+                ?? throw new InvalidConfigurationException("BreakPointAppUrl is not configured");
+
+            // Allow both http and https versions (Azure Container Apps uses https publicly)
+            var origins = new List<string> { appUrl };
+            if (appUrl.StartsWith("http://"))
+            {
+                origins.Add(appUrl.Replace("http://", "https://"));
+            }
+
+            policy.WithOrigins([.. origins]).AllowAnyMethod().AllowAnyHeader().AllowCredentials(); // Required for SignalR
         }
     );
 });
 
 builder.Services.AddControllers();
+builder.Services.AddRouting(options =>
+{
+    options.LowercaseUrls = false;
+    options.AppendTrailingSlash = false;
+});
 builder.Services.AddBreakPointServices();
 builder.Services.AddBreakPointIdentityServices();
 builder.Services.AddAnalysisServices();
-builder.Services.AddBlobStorage();
+builder.Services.AddAzureOpenAIServices(builder.Configuration);
 
-// Add coaching service - uses Azure OpenAI if configured, otherwise static tips
-var azureOpenAISection = builder.Configuration.GetSection("AzureOpenAI");
-if (azureOpenAISection.Exists() && !string.IsNullOrEmpty(azureOpenAISection["Endpoint"]))
-{
-    builder.Services.AddCoachingService(options => azureOpenAISection.Bind(options));
-}
-else
-{
-    builder.Services.AddCoachingService(); // Falls back to static tips
-}
+// Configure Azure Blob Storage using Aspire extension
+builder.AddAzureBlobServiceClient("BlobStorage");
+builder.Services.AddAspirerBlobStorage();
 
 // Add SignalR
 builder.Services.AddSignalR();
@@ -60,6 +73,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Use forwarded headers - must be first middleware
+app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 
@@ -78,15 +94,8 @@ if (app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<BreakPointDbContext>();
-    await context.Database.EnsureCreatedAsync();
-    //if (app.Environment.IsDevelopment())
-    //{
-    //    await Seeder.SeedFakeData(context);
-    //}
-}
+// Database migrations are handled by the Migrations project
+// Do not use EnsureCreatedAsync() as it bypasses migrations
 
 app.MapControllers();
 

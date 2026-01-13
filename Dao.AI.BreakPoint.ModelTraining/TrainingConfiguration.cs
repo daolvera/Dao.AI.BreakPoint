@@ -17,31 +17,13 @@ public class TrainingConfiguration
     [Range(1, int.MaxValue, ErrorMessage = "The {0} field must be a positive integer.")]
     public int BatchSize { get; set; } = 32;
     public float ValidationSplit { get; set; } = 0.2f;
-    public float LearningRate { get; set; } = 0.001f;
+
+    /// <summary>
+    /// Learning rate for FastTree gradient boosting.
+    /// Higher values (0.05-0.1) work better with fewer trees.
+    /// Lower values (0.001-0.01) need more trees to converge.
+    /// </summary>
+    public float LearningRate { get; set; } = 0.1f;
     public string? ImageDirectory { get; set; }
     public bool IsTestingHeuristicFeatures => ImageDirectory is not null;
-
-    /// <summary>
-    /// Number of features per frame (based on MoveNet pose features)
-    /// 12 joints * 2 (velocity + acceleration) + 8 joint angles + 17 joints * 2 (x,y positions) = 66 features
-    /// </summary>
-    public int NumFeatures { get; set; } = 66;
-
-    /// <summary>
-    /// Maximum number of frames per swing sequence (standardized length for CNN input)
-    /// Typically around 60-90 frames for a 2-3 second tennis swing at 30 FPS
-    /// </summary>
-    [Range(1, int.MaxValue, ErrorMessage = "The {0} field must be a positive integer.")]
-    public int SequenceLength { get; set; } = 90;
-
-    /// <summary>
-    /// Calculate sequence length based on swing duration and frame rate
-    /// </summary>
-    /// <param name="swingDurationSeconds">Duration of swing in seconds (typically 2-4 seconds)</param>
-    /// <param name="frameRate">Video frame rate (typically 30 FPS)</param>
-    /// <returns>Calculated sequence length</returns>
-    public static int CalculateSequenceLength(double swingDurationSeconds, int frameRate)
-    {
-        return (int)Math.Ceiling(swingDurationSeconds * frameRate);
-    }
 }

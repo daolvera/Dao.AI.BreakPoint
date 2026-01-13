@@ -1,27 +1,20 @@
 namespace Dao.AI.BreakPoint.Services.Options;
 
 /// <summary>
-/// Configuration options for the swing quality CNN model
+/// Configuration options for the phase quality models
 /// </summary>
 public class SwingQualityModelOptions
 {
     public const string SectionName = "SwingQualityModel";
 
     /// <summary>
-    /// Path to the trained ONNX model file.
-    /// If null or file doesn't exist, heuristic scoring is used.
+    /// Directory containing the phase quality TorchSharp models.
+    /// Expected files: prep_quality.pt, backswing_quality.pt, contact_quality.pt, followthrough_quality.pt
     /// </summary>
-    public string? ModelPath { get; set; }
+    public string ModelsDirectory { get; set; } = "models";
 
     /// <summary>
-    /// Expected sequence length (number of frames) for the model.
-    /// Default: 90 frames (~3 seconds at 30fps)
+    /// Path to the reference profiles JSON file for z-score deviation analysis.
     /// </summary>
-    public int SequenceLength { get; set; } = 90;
-
-    /// <summary>
-    /// Number of features per frame.
-    /// Default: 66 (12 joints × 2 motion metrics + 8 angles + 17 joints × 2 positions)
-    /// </summary>
-    public int NumFeatures { get; set; } = 66;
+    public string? ReferenceProfilesPath { get; set; } = "models/reference_profiles.json";
 }

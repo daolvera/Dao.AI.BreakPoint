@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Aspire.Azure.Security.KeyVault" Version="13.1.0" />
+    <PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.1.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.23.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" Version="2.50.0" />
@@ -20,7 +22,26 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.Data\Dao.AI.BreakPoint.Data.csproj" />
+    <ProjectReference Include="..\Dao.AI.BreakPoint.ServiceDefaults\Dao.AI.BreakPoint.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.Services\Dao.AI.BreakPoint.Services.csproj" />
+  </ItemGroup>
+
+  <!-- Include ONNX models as content files for deployment -->
+  <ItemGroup>
+    <Content Include="..\Dao.AI.BreakPoint.Models\*" Link="models\%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <!-- Ensure local.settings.json is copied to output -->
+  <ItemGroup>
+    <None Update="local.settings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+    </None>
+    <None Update="host.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>

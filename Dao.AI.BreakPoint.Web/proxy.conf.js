@@ -7,6 +7,7 @@ module.exports = {
       process.env["services__apiservice__http__0"],
     secure: process.env["NODE_ENV"] !== "development",
     changeOrigin: true,
+    ws: true, // Enable WebSocket support for SignalR
     logLevel: "debug",
     pathRewrite: {
       "^/api": "" // Remove /api prefix when forwarding to the API

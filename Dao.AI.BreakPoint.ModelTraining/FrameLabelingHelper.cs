@@ -12,6 +12,11 @@ public class FrameLabelingHelper
 {
     private readonly string _moveNetModelPath;
     private readonly string _outputDirectory;
+    private readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        WriteIndented = true,
+    };
 
     public FrameLabelingHelper(string moveNetModelPath, string outputDirectory)
     {
@@ -46,69 +51,80 @@ public class FrameLabelingHelper
         FrameData? prevFrame = null;
         FrameData? prev2Frame = null;
 
-        for (int frameIndex = 0; frameIndex < frameImages.Count; frameIndex++)
+        for (int frameIndex = 1; frameIndex < frameImages.Count; frameIndex++)
         {
-            var frame = frameImages[frameIndex];
-
-            var keypoints = inferenceService.RunInference(
-                frame,
-                cropRegion,
-                metadata.Height,
-                metadata.Width,
-                prevFrame,
-                prev2Frame,
-                deltaTime
-            );
-
-            var angles = inferenceService.ComputeJointAngles(
-                keypoints,
-                metadata.Height,
-                metadata.Width
-            );
-
-            // Only sample every N frames to reduce labeling work
-            if (frameIndex % sampleEveryNFrames == 0)
+            bool isFrameToSample = frameIndex % sampleEveryNFrames == 0;
+            bool isFrameBeforeSample = (frameIndex + 1) % sampleEveryNFrames == 0;
+            bool isFrameTwoBeforeSample = (frameIndex + 2) % sampleEveryNFrames == 0;
+            // only do the work when needed
+            if (isFrameToSample || isFrameBeforeSample || isFrameTwoBeforeSample)
             {
-                // Extract features for the classifier
-                var features = SwingPhaseClassifierTrainingService.ExtractFrameFeatures(
-                    keypoints,
-                    angles,
-                    isRightHanded,
+                var frame = frameImages[frameIndex];
+
+                var keypoints = inferenceService.RunInference(
+                    frame,
+                    cropRegion,
+                    metadata.Height,
+                    metadata.Width,
                     prevFrame,
-                    prev2Frame
+                    prev2Frame,
+                    deltaTime
                 );
 
-                // Create unlabeled frame data
-                var frameData = new UnlabeledFrameJson
+                var angles = inferenceService.ComputeJointAngles(
+                    keypoints,
+                    metadata.Height,
+                    metadata.Width
+                );
+
+                if (isFrameTwoBeforeSample)
                 {
-                    VideoName = videoName,
-                    FrameIndex = frameIndex,
-                    Timestamp = frameIndex / metadata.FrameRate,
-                    IsRightHanded = isRightHanded,
-                    Features = features,
-                    Phase = -1, // -1 indicates unlabeled, user needs to set 0-4
-                };
+                    prev2Frame = CreateFrameData(keypoints, angles, frameIndex);
+                }
+                if (isFrameBeforeSample)
+                {
+                    prevFrame = CreateFrameData(keypoints, angles, frameIndex);
+                }
 
-                // Save to JSON file
-                var outputPath = Path.Combine(
-                    _outputDirectory,
-                    $"{videoName}_frame_{frameIndex:D5}.json"
-                );
+                // Only sample every N frames to reduce labeling work
+                if (frameIndex % sampleEveryNFrames == 0)
+                {
+                    // Serialize joints to flat array: [x, y, confidence, speed] × 17 joints = 68 values
+                    var jointsFlat = new float[keypoints.Length * 4];
+                    for (int j = 0; j < keypoints.Length; j++)
+                    {
+                        jointsFlat[j * 4 + 0] = keypoints[j].X;
+                        jointsFlat[j * 4 + 1] = keypoints[j].Y;
+                        jointsFlat[j * 4 + 2] = keypoints[j].Confidence;
+                        jointsFlat[j * 4 + 3] = keypoints[j].Speed ?? 0f;
+                    }
 
-                var json = JsonSerializer.Serialize(
-                    frameData,
-                    new JsonSerializerOptions { WriteIndented = true }
-                );
+                    // Create unlabeled frame data
+                    var frameData = new UnlabeledFrameJson
+                    {
+                        VideoName = videoName,
+                        FrameIndex = frameIndex,
+                        Timestamp = frameIndex / metadata.FrameRate,
+                        IsRightHanded = isRightHanded,
+                        Joints = jointsFlat,
+                        Angles = angles,
+                        Phase = -1, // -1 indicates unlabeled, user needs to set 0-4
+                    };
 
-                await File.WriteAllTextAsync(outputPath, json);
+                    // Save to JSON file
+                    var outputPath = Path.Combine(
+                        _outputDirectory,
+                        $"{videoName}_frame_{frameIndex:D5}.json"
+                    );
+
+                    var json = JsonSerializer.Serialize(frameData, _jsonOptions);
+
+                    await File.WriteAllTextAsync(outputPath, json);
+                }
+
+                // Update crop region
+                cropRegion = GetCropRegion(keypoints, metadata);
             }
-
-            // Update previous frames for velocity calculation
-            prev2Frame = prevFrame;
-            prevFrame = CreateFrameData(keypoints, angles, frameIndex);
-
-            // Update crop region
-            cropRegion = GetCropRegion(keypoints, metadata);
         }
 
         Console.WriteLine(
@@ -173,7 +189,7 @@ public class FrameLabelingHelper
 }
 
 /// <summary>
-/// JSON structure for unlabeled frames awaiting human labeling
+/// JSON structure for labeled/unlabeled frames (new format with raw joints)
 /// </summary>
 internal class UnlabeledFrameJson
 {
@@ -181,10 +197,36 @@ internal class UnlabeledFrameJson
     public int FrameIndex { get; set; }
     public double Timestamp { get; set; }
     public bool IsRightHanded { get; set; }
-    public required float[] Features { get; set; }
+
+    /// <summary>
+    /// Raw joint positions from MoveNet (17 joints × 4 values: x, y, confidence, speed)
+    /// </summary>
+    public required float[] Joints { get; set; }
+
+    /// <summary>
+    /// Joint angles: [leftElbow, rightElbow, leftShoulder, rightShoulder, leftHip, rightHip, leftKnee, rightKnee]
+    /// </summary>
+    public required float[] Angles { get; set; }
 
     /// <summary>
     /// Phase label: -1 = unlabeled, 0-4 = labeled phase
     /// </summary>
-    public int Phase { get; set; }
+    public int Phase { get; set; } = -1;
+}
+
+/// <summary>
+/// Minimal JSON structure for reading existing labeled files (any format).
+/// Used during re-extraction to preserve labels while ignoring old feature format.
+/// </summary>
+internal class LegacyFrameJson
+{
+    public string? VideoName { get; set; }
+    public int FrameIndex { get; set; }
+    public double Timestamp { get; set; }
+    public bool IsRightHanded { get; set; }
+
+    /// <summary>
+    /// Phase label: -1 = unlabeled, 0-4 = labeled phase
+    /// </summary>
+    public int Phase { get; set; } = -1;
 }

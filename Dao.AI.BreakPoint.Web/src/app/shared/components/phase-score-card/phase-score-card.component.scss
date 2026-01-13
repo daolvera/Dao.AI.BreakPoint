@@ -1,0 +1,32 @@
+.phase-score-card {
+  min-width: 140px;
+
+  &.excellent {
+    border-color: #22c55e;
+    background-color: #f0fdf4;
+  }
+
+  &.good {
+    border-color: #84cc16;
+    background-color: #f7fee7;
+  }
+
+  &.fair {
+    border-color: #eab308;
+    background-color: #fefce8;
+  }
+
+  &.needs-work {
+    border-color: #f97316;
+    background-color: #fff7ed;
+  }
+
+  &.poor {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+  }
+
+  &.is-worst {
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+  }
+}

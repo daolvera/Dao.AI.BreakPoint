@@ -29,7 +29,6 @@ public class CreatePlayerDto : IBaseDto<Player>
     public required string Name { get; set; }
     public string? Email { get; set; }
 
-    // TODO: implement create flow
     public Player ToModel() => new() { Name = Name };
 }
 
@@ -40,7 +39,6 @@ public class PlayerWithStatsDto : PlayerDto
     public int MatchesLost { get; set; }
     public double WinPercentage =>
         MatchesWon + MatchesLost > 0 ? (double)(MatchesWon / (MatchesWon + MatchesLost)) * 100 : 0;
-    public IEnumerable<string> LatestCoachingTips { get; set; } = [];
     public double? EstimatedRating { get; set; }
     public double BigServerScore { get; set; }
     public double ServeAndVolleyerScore { get; set; }
@@ -48,4 +46,10 @@ public class PlayerWithStatsDto : PlayerDto
     public double AttackingBaselinerScore { get; set; }
     public double SolidBaselinerScore { get; set; }
     public double CounterPuncherScore { get; set; }
+
+    /// <summary>
+    /// AI-generated summary of the player's training history and progression.
+    /// Updated after each swing analysis to track improvement patterns.
+    /// </summary>
+    public string? TrainingHistorySummary { get; set; }
 }

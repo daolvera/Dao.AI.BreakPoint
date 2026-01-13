@@ -23,11 +23,11 @@ export class VideoUploadService {
     'video/x-msvideo', // .avi
   ];
 
-  // Maximum file size (50MB)
-  private readonly maxFileSize = 50 * 1024 * 1024;
+  // Maximum file size (100MB)
+  private readonly maxFileSize = 100 * 1024 * 1024;
 
-  // Maximum duration (30 seconds)
-  private readonly maxDuration = 30;
+  // Maximum duration (60 seconds)
+  private readonly maxDuration = 60;
 
   /**
    * Validates a video file for type, size, and duration

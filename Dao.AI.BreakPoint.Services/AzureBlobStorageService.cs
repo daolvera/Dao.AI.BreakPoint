@@ -15,18 +15,46 @@ public class AzureBlobStorageService : IBlobStorageService
     private readonly BlobServiceClient _blobServiceClient;
     private readonly BlobContainerClient _videoContainerClient;
     private readonly BlobContainerClient _imageContainerClient;
-    private readonly BlobStorageOptions _options;
+    private readonly bool _usesDevelopmentStorage;
 
+    /// <summary>
+    /// Creates a new AzureBlobStorageService using the provided options.
+    /// Used for direct configuration (non-Aspire scenarios).
+    /// </summary>
     public AzureBlobStorageService(IOptions<BlobStorageOptions> options)
     {
-        _options = options.Value;
-        _blobServiceClient = new BlobServiceClient(_options.ConnectionString);
+        var storageOptions = options.Value;
+        _blobServiceClient = new BlobServiceClient(storageOptions.ConnectionString);
         _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
-            _options.VideoContainerName
+            storageOptions.VideoContainerName
         );
         _imageContainerClient = _blobServiceClient.GetBlobContainerClient(
-            _options.ImageContainerName
+            storageOptions.ImageContainerName
         );
+        _usesDevelopmentStorage =
+            storageOptions.ConnectionString?.Contains(
+                "UseDevelopmentStorage=true",
+                StringComparison.OrdinalIgnoreCase
+            ) ?? false;
+    }
+
+    /// <summary>
+    /// Creates a new AzureBlobStorageService using the Aspire-injected BlobServiceClient.
+    /// Used when running with .NET Aspire orchestration.
+    /// </summary>
+    public AzureBlobStorageService(BlobServiceClient blobServiceClient)
+    {
+        _blobServiceClient = blobServiceClient;
+        _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
+            BlobStorageOptions.DefaultVideoContainerName
+        );
+        _imageContainerClient = _blobServiceClient.GetBlobContainerClient(
+            BlobStorageOptions.DefaultImageContainerName
+        );
+        // Aspire uses Azurite for local development
+        _usesDevelopmentStorage =
+            _blobServiceClient.Uri.Host.Contains("127.0.0.1")
+            || _blobServiceClient.Uri.Host.Contains("localhost");
     }
 
     public async Task<string> UploadVideoAsync(Stream stream, string fileName, string contentType)
@@ -70,24 +98,16 @@ public class AzureBlobStorageService : IBlobStorageService
     {
         var blobClient = GetBlobClientFromUrl(blobUrl);
 
-        // Check if the connection is using development storage (Azurite)
-        // Azurite doesn't require SAS tokens for local development
-        if (
-            _options.ConnectionString.Contains(
-                "UseDevelopmentStorage=true",
-                StringComparison.OrdinalIgnoreCase
-            )
-        )
-        {
-            return Task.FromResult(blobUrl);
-        }
-
         var sasBuilder = new BlobSasBuilder
         {
             BlobContainerName = blobClient.BlobContainerName,
             BlobName = blobClient.Name,
             Resource = "b",
             ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes),
+            // Allow HTTP for Azurite (local development), HTTPS only for production
+            Protocol = _usesDevelopmentStorage 
+                ? SasProtocol.HttpsAndHttp 
+                : SasProtocol.Https,
         };
 
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
@@ -101,13 +121,21 @@ public class AzureBlobStorageService : IBlobStorageService
         var uri = new Uri(blobUrl);
         var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-        if (pathSegments.Length < 2)
+        // Azurite URLs include account name as first segment: /devstoreaccount1/container/blob
+        // Azure Storage URLs don't: /container/blob
+        int containerIndex = 0;
+        if (_usesDevelopmentStorage && pathSegments.Length > 0 && pathSegments[0] == "devstoreaccount1")
+        {
+            containerIndex = 1;
+        }
+
+        if (pathSegments.Length < containerIndex + 2)
         {
             throw new ArgumentException($"Invalid blob URL format: {blobUrl}");
         }
 
-        var containerName = pathSegments[0];
-        var blobName = string.Join("/", pathSegments.Skip(1));
+        var containerName = pathSegments[containerIndex];
+        var blobName = string.Join("/", pathSegments.Skip(containerIndex + 1));
 
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
         return containerClient.GetBlobClient(blobName);

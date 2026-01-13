@@ -65,7 +65,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     SwingType.ForehandGroundStroke
   );
   protected isConnecting = signal(false);
-  protected signalRNeeded = signal(false); // Only true when we need live updates
+  protected needsSignalR = signal(false);
 
   // Player data
   protected playerWithStats = signal<PlayerWithStatsDto | null>(null);
@@ -106,17 +106,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadPlayerData();
-    this.loadAnalysisHistory();
-    this.setupSignalREventHandlers();
+    this.loadAnalysisData();
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
-    // Disconnect SignalR if still connected
-    if (this.signalRService.connectionState().connected) {
-      this.disconnectSignalR();
-    }
+    this.disconnectSignalR();
   }
 
   private loadPlayerData(): void {
@@ -133,47 +129,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Setup SignalR event handlers (subscriptions only, no connection)
+   * Load analysis data and connect SignalR if there are pending analyses
    */
-  private setupSignalREventHandlers(): void {
-    // Subscribe to SignalR events - these will fire when connected
-    this.signalRService.analysisCompleted$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((result: AnalysisResultDto) => {
-        this.analysisService.updateResultFromNotification(result);
-        // Disconnect if no more pending analyses
-        if (this.pendingRequests().length === 0) {
-          this.disconnectSignalR();
+  private loadAnalysisData(): void {
+    const pid = this.playerId();
+    if (!pid) return;
+
+    // Load history
+    this.analysisService.getResultHistory(pid).subscribe();
+
+    // Load pending and connect SignalR if needed
+    this.analysisService.getPendingRequests(pid).subscribe({
+      next: (requests) => {
+        if (requests.length > 0) {
+          this.connectSignalR();
         }
-      });
-
-    this.signalRService.analysisStatusChanged$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((request: AnalysisRequestDto) => {
-        this.analysisService.updateRequestFromNotification(request);
-      });
-
-    this.isConnecting.set(false);
+      },
+    });
   }
 
   /**
-   * Connect to SignalR for live updates (called when analysis is requested)
+   * Connect to SignalR and subscribe to events
    */
   private async connectSignalR(): Promise<void> {
-    this.signalRNeeded.set(true);
-
     if (this.signalRService.connectionState().connected) {
-      return; // Already connected
+      return;
     }
+    this.needsSignalR.set(true);
+
+    const pid = this.playerId();
+    if (!pid) return;
 
     try {
       this.isConnecting.set(true);
       await this.signalRService.startConnection();
+      await this.signalRService.joinPlayerGroup(pid);
 
-      const pid = this.playerId();
-      if (pid) {
-        await this.signalRService.joinPlayerGroup(pid);
-      }
+      // Subscribe to events after connection is established
+      this.signalRService.analysisCompleted$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((result: AnalysisResultDto) => {
+          this.analysisService.updateResultFromNotification(result);
+        });
+
+      this.signalRService.analysisStatusChanged$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((request: AnalysisRequestDto) => {
+          this.analysisService.updateRequestFromNotification(request);
+        });
     } catch (error) {
       console.error('Failed to connect SignalR:', error);
     } finally {
@@ -182,23 +185,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Disconnect from SignalR when no longer needed
+   * Disconnect from SignalR
    */
   private async disconnectSignalR(): Promise<void> {
-    this.signalRNeeded.set(false);
+    if (!this.signalRService.connectionState().connected) return;
+
     const pid = this.playerId();
     if (pid) {
       await this.signalRService.leavePlayerGroup(pid);
     }
     await this.signalRService.stopConnection();
-  }
-
-  private loadAnalysisHistory(): void {
-    const pid = this.playerId();
-    if (pid) {
-      this.analysisService.getPendingRequests(pid).subscribe();
-      this.analysisService.getResultHistory(pid).subscribe();
-    }
   }
 
   protected openUploadDialog(): void {
@@ -210,24 +206,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   protected async onVideoUploaded(result: any): Promise<void> {
-    // The video-upload component emits the result
-    // Now we need to create the analysis
     const pid = this.playerId();
-    if (pid && result.file) {
-      // Connect to SignalR for live updates before uploading
-      await this.connectSignalR();
+    if (!pid || !result.file) return;
 
-      this.analysisService
-        .uploadVideo(result.file, pid, this.selectedStrokeType())
-        .subscribe({
-          next: () => {
-            this.showUploadDialog.set(false);
-          },
-          error: (err) => {
-            console.error('Upload failed:', err);
-          },
-        });
-    }
+    // Connect to SignalR for live updates before uploading
+    await this.connectSignalR();
+
+    this.analysisService
+      .uploadVideo(result.file, pid, this.selectedStrokeType())
+      .subscribe({
+        next: () => {
+          this.showUploadDialog.set(false);
+        },
+        error: (err) => {
+          console.error('Upload failed:', err);
+        },
+      });
   }
 
   protected getStatusIcon(status: AnalysisStatus): string {
@@ -235,13 +229,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
       case AnalysisStatus.Requested:
         return 'schedule';
       case AnalysisStatus.InProgress:
-        return 'pending';
+        return 'hourglass_empty';
       case AnalysisStatus.Completed:
         return 'check_circle';
       case AnalysisStatus.Failed:
         return 'error';
       default:
         return 'help';
+    }
+  }
+
+  protected getStatusLabel(status: AnalysisStatus): string {
+    switch (status) {
+      case AnalysisStatus.Requested:
+        return 'Queued';
+      case AnalysisStatus.InProgress:
+        return 'Analyzing';
+      case AnalysisStatus.Completed:
+        return 'Completed';
+      case AnalysisStatus.Failed:
+        return 'Failed';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -281,6 +290,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+    });
+  }
+
+  protected deleteRequest(requestId: number): void {
+    this.analysisService.deleteRequest(requestId).subscribe({
+      error: (err) => console.error('Failed to delete request:', err),
     });
   }
 }

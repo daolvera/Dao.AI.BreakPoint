@@ -109,7 +109,7 @@ export class AnalysisService {
    * Delete an analysis request
    */
   deleteRequest(id: number): Observable<void> {
-    return this.http.delete<void>(`api/Analysis/request/${id}`).pipe(
+    return this.http.delete<void>(`api/Analysis/${id}`).pipe(
       tap(() => {
         this.pendingRequests.update((requests) =>
           requests.filter((r) => r.id !== id)
@@ -134,9 +134,11 @@ export class AnalysisService {
   }
 
   /**
-   * Update from SignalR completion notification
+   * Update from SignalR completion notification.
+   * Re-fetches from API to get URLs with SAS tokens.
    */
   updateResultFromNotification(result: AnalysisResultDto): void {
+    // Immediately update UI with the notification data
     this.currentResult.set(result);
 
     // Remove from pending requests
@@ -151,9 +153,13 @@ export class AnalysisService {
         analysisRequestId: result.analysisRequestId,
         strokeType: result.strokeType,
         qualityScore: result.qualityScore,
+        phaseScores: result.phaseScores,
         createdAt: result.createdAt,
       },
       ...history,
     ]);
+
+    // Re-fetch from API to get URLs with SAS tokens for blob access
+    this.getResult(result.analysisRequestId).subscribe();
   }
 }

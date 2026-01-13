@@ -76,9 +76,15 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.Property<int>("AnalysisRequestId")
                         .HasColumnType("integer");
 
+                    b.Property<int>("BackswingScore")
+                        .HasColumnType("integer");
+
                     b.Property<string>("CoachingTipsJson")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("ContactScore")
+                        .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -86,9 +92,8 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.Property<string>("CreatedByAppUserId")
                         .HasColumnType("text");
 
-                    b.Property<string>("FeatureImportanceJson")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int>("FollowThroughScore")
+                        .HasColumnType("integer");
 
                     b.Property<int>("PlayerId")
                         .HasColumnType("integer");
@@ -206,6 +211,117 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.DrillRecommendation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AnalysisResultId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByAppUserId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("DrillName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("FeedbackText")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("PlayerId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SuggestedDuration")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TargetFeature")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("TargetPhase")
+                        .HasColumnType("integer");
+
+                    b.Property<bool?>("ThumbsUp")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UpdatedByAppUserId")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisResultId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("DrillRecommendations");
+                });
+
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.FeatureDeviation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<double>("ActualValue")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByAppUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("FeatureIndex")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FeatureName")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<int>("PhaseDeviationId")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("ReferenceMean")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ReferenceStd")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("ZScore")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PhaseDeviationId");
+
+                    b.ToTable("FeatureDeviations");
+                });
+
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.Match", b =>
                 {
                     b.Property<int>("Id")
@@ -252,6 +368,33 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.ToTable("Matches");
                 });
 
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.PhaseDeviation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AnalysisResultId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByAppUserId")
+                        .HasColumnType("text");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AnalysisResultId");
+
+                    b.ToTable("PhaseDeviations");
+                });
+
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.Player", b =>
                 {
                     b.Property<int>("Id")
@@ -296,6 +439,9 @@ namespace Dao.AI.BreakPoint.Data.Migrations
 
                     b.Property<double>("SolidBaselinerScore")
                         .HasColumnType("double precision");
+
+                    b.Property<string>("TrainingHistorySummary")
+                        .HasColumnType("text");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -511,6 +657,35 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.Navigation("Player");
                 });
 
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.DrillRecommendation", b =>
+                {
+                    b.HasOne("Dao.AI.BreakPoint.Data.Models.AnalysisResult", "AnalysisResult")
+                        .WithMany("DrillRecommendations")
+                        .HasForeignKey("AnalysisResultId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Dao.AI.BreakPoint.Data.Models.Player", "Player")
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .IsRequired();
+
+                    b.Navigation("AnalysisResult");
+
+                    b.Navigation("Player");
+                });
+
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.FeatureDeviation", b =>
+                {
+                    b.HasOne("Dao.AI.BreakPoint.Data.Models.PhaseDeviation", "PhaseDeviation")
+                        .WithMany("FeatureDeviations")
+                        .HasForeignKey("PhaseDeviationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PhaseDeviation");
+                });
+
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.Match", b =>
                 {
                     b.HasOne("Dao.AI.BreakPoint.Data.Models.Player", "Player1")
@@ -528,6 +703,17 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.Navigation("Player1");
 
                     b.Navigation("Player2");
+                });
+
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.PhaseDeviation", b =>
+                {
+                    b.HasOne("Dao.AI.BreakPoint.Data.Models.AnalysisResult", "AnalysisResult")
+                        .WithMany("PhaseDeviations")
+                        .HasForeignKey("AnalysisResultId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AnalysisResult");
                 });
 
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.Player", b =>
@@ -607,10 +793,22 @@ namespace Dao.AI.BreakPoint.Data.Migrations
                     b.Navigation("Result");
                 });
 
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.AnalysisResult", b =>
+                {
+                    b.Navigation("DrillRecommendations");
+
+                    b.Navigation("PhaseDeviations");
+                });
+
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.AppUser", b =>
                 {
                     b.Navigation("Player")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.PhaseDeviation", b =>
+                {
+                    b.Navigation("FeatureDeviations");
                 });
 
             modelBuilder.Entity("Dao.AI.BreakPoint.Data.Models.Player", b =>

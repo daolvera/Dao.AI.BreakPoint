@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+.npm/
+
+# Build outputs
+dist/
+.angular/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Test
+coverage/
+.nyc_output/
+
+# Misc
+*.log
+*.md
+!README.md
+.env*
+Thumbs.db
+.DS_Store

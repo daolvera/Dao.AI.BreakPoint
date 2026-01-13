@@ -31,9 +31,4 @@ public interface IAnalysisProcessingService
         Dictionary<string, double> featureImportance,
         string? skeletonOverlayUrl
     );
-
-    /// <summary>
-    /// Saves coaching tips for an analysis result
-    /// </summary>
-    Task SaveCoachingTipsAsync(int analysisResultId, List<string> coachingTips);
 }

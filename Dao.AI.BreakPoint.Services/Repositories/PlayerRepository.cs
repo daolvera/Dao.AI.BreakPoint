@@ -9,19 +9,24 @@ namespace Dao.AI.BreakPoint.Services.Repositories;
 public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPlayerRepository
 {
     private BreakPointDbContext DbContext { get; init; }
-    public PlayerRepository(BreakPointDbContext dbContext) : base(dbContext)
+
+    public PlayerRepository(BreakPointDbContext dbContext)
+        : base(dbContext)
     {
         DbContext = dbContext;
     }
 
     public Task<Player?> GetByAppUserIdAsync(string appUserId)
     {
-        return DbContext.Players
-            .Include(p => p.AppUser)
+        return DbContext
+            .Players.Include(p => p.AppUser)
             .SingleOrDefaultAsync(p => p.AppUser != null && p.AppUser.Id == appUserId);
     }
 
-    public override IQueryable<Player> ApplySearchFilters(IQueryable<Player> query, PlayerSearchRequest searchParams)
+    public override IQueryable<Player> ApplySearchFilters(
+        IQueryable<Player> query,
+        PlayerSearchRequest searchParams
+    )
     {
         if (!string.IsNullOrWhiteSpace(searchParams.PlayerName))
         {
@@ -32,8 +37,13 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
         {
             query = query
                 .Include(p => p.AppUser)
-                .Where(p => p.AppUser != null &&
-                    p.AppUser.Email!.Equals(searchParams.Email, StringComparison.InvariantCultureIgnoreCase));
+                .Where(p =>
+                    p.AppUser != null
+                    && p.AppUser.Email!.Equals(
+                        searchParams.Email,
+                        StringComparison.InvariantCultureIgnoreCase
+                    )
+                );
         }
 
         return query;
@@ -41,7 +51,8 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
 
     public async Task<PlayerWithStatsDto?> GetPlayerWithStatsAsync(int id)
     {
-        var player = await DbContext.Players.Where(p => p.Id == id)
+        var player = await DbContext
+            .Players.Where(p => p.Id == id)
             .Include(o => o.AppUser)
             .Include(p => p.MyReportedMatches)
             .Include(p => p.MyParticipatedMatches)
@@ -51,8 +62,9 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
             return null;
         }
         int totalMatches = player.MyParticipatedMatches.Count + player.MyReportedMatches.Count;
-        int matchesWon = player.MyReportedMatches.Count(m => m.Player1Won) +
-                             player.MyParticipatedMatches.Count(m => !m.Player1Won);
+        int matchesWon =
+            player.MyReportedMatches.Count(m => m.Player1Won)
+            + player.MyParticipatedMatches.Count(m => !m.Player1Won);
         return new PlayerWithStatsDto()
         {
             Id = player.Id,
@@ -71,6 +83,7 @@ public class PlayerRepository : BaseRepository<Player, PlayerSearchRequest>, IPl
             CounterPuncherScore = player.CounterPuncherScore,
             MatchesWon = matchesWon,
             MatchesLost = totalMatches - matchesWon,
+            TrainingHistorySummary = player.TrainingHistorySummary,
         };
     }
 }

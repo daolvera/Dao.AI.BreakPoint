@@ -11,5 +11,5 @@ public class SwingPhaseClassifierOptions
     /// Path to the trained ONNX model file.
     /// If null or file doesn't exist, heuristic classification is used.
     /// </summary>
-    public required string ModelPath { get; set; }
+    public required string ModelPath { get; set; } = "models/swing_phase_classifier.onnx";
 }

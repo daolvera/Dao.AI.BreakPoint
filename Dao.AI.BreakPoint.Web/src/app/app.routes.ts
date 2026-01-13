@@ -2,8 +2,8 @@ import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { AnalysisResultsComponent } from './pages/analysis-results/analysis-results.component';
 import { CompleteProfileComponent } from './pages/complete-profile/complete-profile.component';
-import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { HomeComponent } from './pages/home/home.component';
+import { SettingsComponent } from './pages/settings/settings.component';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
@@ -15,11 +15,15 @@ export const routes: Routes = [
   },
   {
     path: 'profile',
-    redirectTo: 'dashboard',
+    redirectTo: '',
   },
   {
     path: 'dashboard',
-    component: DashboardComponent,
+    redirectTo: '',
+  },
+  {
+    path: 'settings',
+    component: SettingsComponent,
     canActivate: [authGuard],
   },
   {
@@ -29,6 +33,5 @@ export const routes: Routes = [
   },
   // TODO: Add in anonymous home page
   // TODO: add in login handling
-  // TODO: add in a settings page
   // TODO: add in an error handling page
 ];

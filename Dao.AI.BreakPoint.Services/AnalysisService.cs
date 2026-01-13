@@ -12,6 +12,11 @@ public class AnalysisService(
     IPlayerRepository playerRepository
 ) : IAnalysisService
 {
+    /// <summary>
+    /// Default SAS URL expiry time in minutes (1 hour)
+    /// </summary>
+    private const int SasExpiryMinutes = 60;
+
     public async Task<AnalysisRequestDto> UploadAndCreateAnalysisAsync(
         Stream videoStream,
         string fileName,
@@ -21,7 +26,7 @@ public class AnalysisService(
     )
     {
         // Verify player exists
-        var player =
+        var _ =
             await playerRepository.GetByIdAsync(request.PlayerId)
             ?? throw new NotFoundException($"Player with ID {request.PlayerId}");
 
@@ -49,7 +54,7 @@ public class AnalysisService(
             analysisRequest.VideoBlobUrl = blobUrl;
             await analysisRequestRepository.UpdateAsync(analysisRequest, appUserId);
 
-            return AnalysisRequestDto.FromModel(analysisRequest);
+            return await ToRequestDtoWithSasUrlsAsync(analysisRequest);
         }
         catch (Exception ex)
         {
@@ -64,25 +69,30 @@ public class AnalysisService(
     public async Task<AnalysisRequestDto?> GetRequestByIdAsync(int id)
     {
         var request = await analysisRequestRepository.GetByIdAsync(id);
-        return request is null ? null : AnalysisRequestDto.FromModel(request);
+        return request is null ? null : await ToRequestDtoWithSasUrlsAsync(request);
     }
 
     public async Task<AnalysisResultDto?> GetResultByIdAsync(int id)
     {
         var result = await analysisResultRepository.GetByIdAsync(id);
-        return result is null ? null : AnalysisResultDto.FromModel(result);
+        return result is null ? null : await ToResultDtoWithSasUrlsAsync(result);
     }
 
     public async Task<AnalysisResultDto?> GetResultByRequestIdAsync(int requestId)
     {
         var result = await analysisResultRepository.GetByRequestIdAsync(requestId);
-        return result is null ? null : AnalysisResultDto.FromModel(result);
+        return result is null ? null : await ToResultDtoWithSasUrlsAsync(result);
     }
 
     public async Task<IEnumerable<AnalysisRequestDto>> GetPendingRequestsAsync(int playerId)
     {
         var requests = await analysisRequestRepository.GetPendingByPlayerIdAsync(playerId);
-        return requests.Select(AnalysisRequestDto.FromModel);
+        var dtos = new List<AnalysisRequestDto>();
+        foreach (var request in requests)
+        {
+            dtos.Add(await ToRequestDtoWithSasUrlsAsync(request));
+        }
+        return dtos;
     }
 
     public async Task<IEnumerable<AnalysisResultSummaryDto>> GetResultHistoryAsync(
@@ -128,5 +138,61 @@ public class AnalysisService(
         }
 
         return await analysisRequestRepository.DeleteItemAsync(id);
+    }
+
+    /// <summary>
+    /// Converts an AnalysisRequest to DTO with SAS URLs for blob access
+    /// </summary>
+    private async Task<AnalysisRequestDto> ToRequestDtoWithSasUrlsAsync(
+        Data.Models.AnalysisRequest request
+    )
+    {
+        var dto = AnalysisRequestDto.FromModel(request);
+
+        if (!string.IsNullOrEmpty(dto.VideoBlobUrl))
+        {
+            dto.VideoBlobUrl = await blobStorageService.GetSasUrlAsync(
+                dto.VideoBlobUrl,
+                SasExpiryMinutes
+            );
+        }
+
+        return dto;
+    }
+
+    /// <summary>
+    /// Converts an AnalysisResult to DTO with SAS URLs for blob access
+    /// </summary>
+    private async Task<AnalysisResultDto> ToResultDtoWithSasUrlsAsync(
+        Data.Models.AnalysisResult result
+    )
+    {
+        var dto = AnalysisResultDto.FromModel(result);
+
+        if (!string.IsNullOrEmpty(dto.VideoBlobUrl))
+        {
+            dto.VideoBlobUrl = await blobStorageService.GetSasUrlAsync(
+                dto.VideoBlobUrl,
+                SasExpiryMinutes
+            );
+        }
+
+        if (!string.IsNullOrEmpty(dto.SkeletonOverlayUrl))
+        {
+            dto.SkeletonOverlayUrl = await blobStorageService.GetSasUrlAsync(
+                dto.SkeletonOverlayUrl,
+                SasExpiryMinutes
+            );
+        }
+
+        if (!string.IsNullOrEmpty(dto.SkeletonOverlayGifUrl))
+        {
+            dto.SkeletonOverlayGifUrl = await blobStorageService.GetSasUrlAsync(
+                dto.SkeletonOverlayGifUrl,
+                SasExpiryMinutes
+            );
+        }
+
+        return dto;
     }
 }

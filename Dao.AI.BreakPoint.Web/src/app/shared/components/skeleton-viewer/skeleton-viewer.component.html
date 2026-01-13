@@ -1,0 +1,53 @@
+<div class="skeleton-viewer">
+  @if (imageUrl() || gifUrl()) {
+  <div class="viewer-container relative">
+    <!-- Static Image / Key Frame (only show if not in GIF mode and image exists) -->
+    @if (!canShowGif() && imageUrl()) {
+    <img
+      [src]="imageUrl()"
+      [alt]="altText()"
+      class="skeleton-image rounded-lg shadow-md w-full h-auto"
+    />
+    }
+
+    <!-- Animated GIF (show if in GIF mode, or if only GIF exists) -->
+    @if (canShowGif() && gifUrl()) {
+    <img
+      [src]="gifUrl()"
+      [alt]="altText() + ' Animation'"
+      class="skeleton-gif rounded-lg shadow-md w-full h-auto"
+    />
+    }
+
+    <!-- Toggle button -->
+    @if (imageUrl() && gifUrl()) {
+    <button
+      mat-mini-fab
+      color="primary"
+      class="toggle-btn absolute bottom-4 right-4"
+      (click)="toggleView()"
+      [matTooltip]="showGif() ? 'Show Key Frame' : 'Play Animation'"
+    >
+      <mat-icon>{{ showGif() ? "photo" : "play_arrow" }}</mat-icon>
+    </button>
+    }
+  </div>
+
+  <!-- Caption -->
+  <p class="text-sm text-gray-500 mt-2 text-center">
+    {{ canShowGif() ? "Full Swing Animation" : "Key Frame Analysis" }}
+    @if (imageUrl() && gifUrl()) {
+    <span class="text-xs">(Click button to toggle)</span>
+    }
+  </p>
+  } @else {
+  <div
+    class="placeholder flex items-center justify-center bg-gray-100 rounded-lg p-8"
+  >
+    <div class="text-center text-gray-500">
+      <mat-icon class="text-4xl mb-2">image</mat-icon>
+      <p>{{ placeholderText() }}</p>
+    </div>
+  </div>
+  }
+</div>

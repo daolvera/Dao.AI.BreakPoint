@@ -56,7 +56,7 @@ public class AnalysisProcessingService(
             PlayerId = request.PlayerId,
             StrokeType = request.StrokeType,
             QualityScore = qualityScore,
-            FeatureImportanceJson = JsonSerializer.Serialize(featureImportance),
+            // Phase scores and deviations are populated separately by PhaseQualityInferenceService
             SkeletonOverlayUrl = skeletonOverlayUrl,
             VideoBlobUrl = request.VideoBlobUrl,
         };
@@ -68,16 +68,5 @@ public class AnalysisProcessingService(
         await analysisRequestRepository.UpdateAsync(request, appUserId: null);
 
         return result;
-    }
-
-    public async Task SaveCoachingTipsAsync(int analysisResultId, List<string> coachingTips)
-    {
-        var result =
-            await analysisResultRepository.GetByIdAsync(analysisResultId)
-            ?? throw new NotFoundException($"Analysis result with ID {analysisResultId}");
-
-        result.CoachingTipsJson = JsonSerializer.Serialize(coachingTips);
-
-        await analysisResultRepository.UpdateAsync(result, appUserId: null);
     }
 }

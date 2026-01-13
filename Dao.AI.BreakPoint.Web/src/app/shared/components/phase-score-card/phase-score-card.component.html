@@ -1,0 +1,33 @@
+<div
+  class="phase-score-card p-4 rounded-lg border-2 transition-all"
+  [class]="getCardClasses()"
+>
+  <!-- Phase Label -->
+  <div class="flex items-center justify-between mb-2">
+    <span class="font-medium text-gray-700">{{ label() }}</span>
+    <mat-icon [class]="getIconColor()" [matTooltip]="getTooltip()">
+      {{ getIcon() }}
+    </mat-icon>
+  </div>
+
+  <!-- Score Display -->
+  <div class="flex items-baseline gap-1 mb-2">
+    <span class="text-3xl font-bold" [class]="getScoreColor()">
+      {{ score() }}
+    </span>
+    <span class="text-sm text-gray-500">/100</span>
+  </div>
+
+  <!-- Progress Bar -->
+  <mat-progress-bar
+    [value]="score()"
+    [color]="getProgressColor()"
+    mode="determinate"
+    class="rounded"
+  ></mat-progress-bar>
+
+  <!-- Grade Label -->
+  <p class="text-xs text-gray-500 mt-1 text-right">
+    {{ getGrade() }}
+  </p>
+</div>

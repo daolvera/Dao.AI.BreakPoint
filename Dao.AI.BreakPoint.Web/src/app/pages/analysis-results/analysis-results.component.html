@@ -1,10 +1,10 @@
 <div
   class="analysis-results-container min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8"
 >
-  <div class="max-w-4xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     <!-- Back Button -->
     <a
-      routerLink="/dashboard"
+      routerLink="/"
       class="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6"
     >
       <mat-icon class="mr-2">arrow_back</mat-icon>
@@ -25,7 +25,7 @@
         Error Loading Analysis
       </h2>
       <p class="text-gray-600 mb-4">{{ error() }}</p>
-      <button mat-raised-button color="primary" routerLink="/dashboard">
+      <button mat-raised-button color="primary" routerLink="/">
         Return to Dashboard
       </button>
     </mat-card>
@@ -35,7 +35,7 @@
     <div class="flex justify-between items-start mb-6">
       <div>
         <h1 class="text-3xl font-bold text-gray-900">
-          {{ SwingTypes[req.strokeType] }} Analysis
+          {{ SwingTypeLabels[req.strokeType] }} Analysis
         </h1>
         <p class="text-gray-500 mt-1">
           Analyzed {{ req.createdAt | date : "medium" }}
@@ -79,7 +79,7 @@
           req.errorMessage || "An unexpected error occurred during analysis."
         }}
       </p>
-      <button mat-raised-button color="primary" routerLink="/dashboard">
+      <button mat-raised-button color="primary" routerLink="/">
         Try Another Video
       </button>
     </mat-card>
@@ -87,12 +87,13 @@
 
     <!-- Completed Results -->
     @if (hasResult()) { @let res = result()!;
-    <!-- Score Card -->
+
+    <!-- Overall Score + Skeleton Viewer -->
     <mat-card class="mb-6 overflow-hidden">
-      <div class="flex flex-col md:flex-row">
+      <div class="flex flex-col">
         <!-- Score Section -->
         <div
-          class="flex-shrink-0 p-8 text-center md:border-r border-gray-200"
+          class="flex-shrink-0 p-8 text-center lg:border-r border-gray-200"
           [class]="getScoreBgColor(res.qualityScore)"
         >
           <div
@@ -104,95 +105,108 @@
           <div class="text-lg font-medium text-gray-700">
             {{ getScoreGrade(res.qualityScore) }}
           </div>
-          <div class="text-sm text-gray-500 mt-1">Quality Score</div>
+          <div class="text-sm text-gray-500 mt-1">Overall Quality Score</div>
         </div>
 
-        <!-- Skeleton Overlay -->
-        @if (res.skeletonOverlayUrl) {
+        <!-- Skeleton Viewer -->
+        @if (res.skeletonOverlayUrl || res.skeletonOverlayGifUrl){
         <div class="flex-grow p-4">
           <h3 class="text-sm font-medium text-gray-500 mb-2">
-            Key Frame Analysis
+            Swing Visualization
           </h3>
-          <img
-            [src]="res.skeletonOverlayUrl"
-            alt="Skeleton overlay showing pose analysis"
-            class="rounded-lg shadow-md max-w-full h-auto"
-          />
-        </div>
-        } @else {
-        <div class="flex-grow p-8 flex items-center justify-center bg-gray-100">
-          <div class="text-center text-gray-500">
-            <mat-icon class="text-4xl mb-2">image</mat-icon>
-            <p>Skeleton overlay not available</p>
-          </div>
+          <app-skeleton-viewer
+            [imageUrl]="res.skeletonOverlayUrl"
+            [gifUrl]="res.skeletonOverlayGifUrl"
+            altText="Skeleton overlay showing pose analysis"
+            placeholderText="Skeleton overlay not available"
+          ></app-skeleton-viewer>
         </div>
         }
       </div>
     </mat-card>
 
-    <!-- Feature Importance -->
-    @if (sortedFeatures().length > 0) {
+    <!-- Phase Scores -->
+    @if (phaseScoresArray().length > 0) {
     <mat-card class="mb-6 p-6">
       <h2 class="text-xl font-semibold text-gray-900 mb-4">
-        Key Areas of Focus
+        Phase-by-Phase Breakdown
       </h2>
       <p class="text-gray-600 mb-4">
-        These aspects of your swing had the most impact on your score:
+        Your swing is analyzed across three key phases. Focus on the
+        lowest-scoring phase to improve fastest.
+      </p>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        @for (phase of phaseScoresArray(); track phase.phase) {
+        <app-phase-score-card
+          [label]="phase.label"
+          [score]="phase.score"
+          [isWorst]="worstPhase()?.phase === phase.phase"
+        ></app-phase-score-card>
+        }
+      </div>
+    </mat-card>
+    }
+
+    <!-- Top Deviations from Reference -->
+    @if (topDeviations().length > 0) {
+    <mat-card class="mb-6 p-6">
+      <h2 class="text-xl font-semibold text-gray-900 mb-4">
+        Key Areas for Improvement
+      </h2>
+      <p class="text-gray-600 mb-4">
+        These aspects of your swing deviate most from optimal technique:
       </p>
 
       <div class="space-y-4">
-        @for (feature of sortedFeatures(); track feature[0]) {
-        <div class="feature-item">
-          <div class="flex justify-between mb-1">
-            <span class="font-medium text-gray-700">{{
-              formatFeatureName(feature[0])
-            }}</span>
-            <span class="text-sm text-gray-500"
-              >{{ feature[1] * 100 | number : "1.0-0" }}%</span
+        @for (deviation of topDeviations(); track deviation.featureIndex) {
+        <div class="deviation-item p-4 bg-gray-50 rounded-lg">
+          <div class="flex items-start justify-between mb-2">
+            <div>
+              <span class="font-medium text-gray-800">
+                {{ formatFeatureName(deviation.featureName) }}
+              </span>
+              <span class="text-sm text-gray-500 ml-2">
+                ({{ deviation.phaseLabel }})
+              </span>
+            </div>
+            <mat-chip
+              [class]="
+                deviation.severity === 'significant'
+                  ? 'bg-red-100 text-red-800'
+                  : deviation.severity === 'moderate'
+                  ? 'bg-orange-100 text-orange-800'
+                  : 'bg-yellow-100 text-yellow-800'
+              "
             >
+              {{ deviation.severity }}
+            </mat-chip>
           </div>
-          <div class="w-full bg-gray-200 rounded-full h-2.5">
-            <div
-              class="bg-primary-500 h-2.5 rounded-full transition-all duration-500"
-              [style.width.%]="getFeatureBarWidth(feature[1])"
-            ></div>
-          </div>
+          <p class="text-sm text-gray-600">
+            Your {{ formatFeatureName(deviation.featureName) }} is
+            <strong>{{ deviation.severity }} {{ deviation.direction }}</strong>
+            the reference ({{ deviation.zScore | number : "1.1-1" }}σ from
+            optimal).
+          </p>
         </div>
         }
       </div>
     </mat-card>
     }
 
-    <!-- Coaching Tips -->
-    @if (res.coachingTips && res.coachingTips.length > 0) {
+    <!-- Drill Recommendations -->
+    @if (res.drillRecommendations && res.drillRecommendations.length > 0) {
     <mat-card class="mb-6 p-6">
-      <h2 class="text-xl font-semibold text-gray-900 mb-4">
-        <mat-icon class="align-middle mr-2 text-primary-500"
-          >sports_tennis</mat-icon
-        >
-        Coaching Tips
-      </h2>
-
-      <div class="space-y-4">
-        @for (tip of res.coachingTips; track $index) {
-        <div
-          class="coaching-tip flex items-start gap-3 p-4 bg-gray-50 rounded-lg"
-        >
-          <div
-            class="tip-number flex-shrink-0 w-8 h-8 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-bold"
-          >
-            {{ $index + 1 }}
-          </div>
-          <p class="text-gray-700 flex-grow">{{ tip }}</p>
-        </div>
-        }
-      </div>
+      <app-drill-recommendations
+        [drills]="res.drillRecommendations"
+        (drillUpdated)="onDrillFeedback($event)"
+      ></app-drill-recommendations>
     </mat-card>
     }
 
     <!-- Actions -->
     <div class="flex justify-center gap-4">
-      <button mat-raised-button color="primary" routerLink="/dashboard">
+      <button mat-raised-button color="primary" routerLink="/">
         <mat-icon>add</mat-icon>
         Analyze Another Video
       </button>

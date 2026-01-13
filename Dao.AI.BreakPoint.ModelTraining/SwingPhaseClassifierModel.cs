@@ -1,12 +1,10 @@
-using Tensorflow.Keras.Engine;
-using static Tensorflow.KerasApi;
+using Microsoft.ML.Data;
 
 namespace Dao.AI.BreakPoint.ModelTraining;
 
 /// <summary>
-/// MLP classifier model for frame-level swing phase detection.
-/// Takes pose keypoints, angles, velocities, and accelerations from current
-/// and previous frames to classify the swing phase.
+/// ML.NET data classes and constants for frame-level swing phase classification.
+/// Uses a multiclass classifier trained on pose features.
 ///
 /// Output classes:
 /// 0 = None (no person or not in tennis stance)
@@ -19,74 +17,75 @@ public static class SwingPhaseClassifierModel
 {
     public const int NumClasses = 5;
 
-    // Feature counts per frame
-    public const int KeypointFeatures = 17 * 3; // 17 joints × (x, y, confidence) = 51
+    // Feature counts per frame (using pose-relative features)
     public const int AngleFeatures = 8; // 8 joint angles
-    public const int VelocityFeatures = 12; // 12 key joint velocities
-    public const int AccelerationFeatures = 12; // 12 key joint accelerations
-    public const int HandednessFeature = 1; // isRightHanded as 0/1
+    public const int RelativePositionFeatures = 12; // 6 key joints × 2 (relative x, y)
+    public const int VelocityFeatures = 6; // 6 key joint velocities
+    public const int ArmConfigFeatures = 4; // Arm position relative to body
+    public const int HandednessFeature = 1;
 
     /// <summary>
     /// Features per single frame (without temporal context)
     /// </summary>
     public const int FeaturesPerFrame =
-        KeypointFeatures + AngleFeatures + VelocityFeatures + AccelerationFeatures;
+        AngleFeatures + RelativePositionFeatures + VelocityFeatures + ArmConfigFeatures; // 30
 
     /// <summary>
     /// Total features with 3-frame temporal window (current + 2 previous)
     /// Plus handedness which is constant across frames
     /// </summary>
-    public const int TotalFeatures = (FeaturesPerFrame * 3) + HandednessFeature; // 84*3 + 1 = 253
+    public const int TotalFeatures = (FeaturesPerFrame * 3) + HandednessFeature; // 30×3 + 1 = 91
 
     /// <summary>
-    /// Build MLP classifier for swing phase detection.
-    /// Uses a 3-frame sliding window for temporal context.
-    ///
-    /// Input: [batch, 253] features (3 frames × 84 features + 1 handedness)
-    /// Output: [batch, 5] softmax probabilities for each phase
+    /// Class names for output interpretation
     /// </summary>
-    public static IModel BuildModel()
-    {
-        var input = keras.Input(shape: TotalFeatures);
-
-        // First hidden layer - learn feature combinations
-        var dense1 = keras.layers.Dense(128, activation: "relu").Apply(input);
-        var bn1 = keras.layers.BatchNormalization().Apply(dense1);
-        var dropout1 = keras.layers.Dropout(0.3f).Apply(bn1);
-
-        // Second hidden layer - higher-level patterns
-        var dense2 = keras.layers.Dense(64, activation: "relu").Apply(dropout1);
-        var bn2 = keras.layers.BatchNormalization().Apply(dense2);
-        var dropout2 = keras.layers.Dropout(0.3f).Apply(bn2);
-
-        // Third hidden layer - phase-specific patterns
-        var dense3 = keras.layers.Dense(32, activation: "relu").Apply(dropout2);
-        var dropout3 = keras.layers.Dropout(0.2f).Apply(dense3);
-
-        // Output layer - 5-class softmax
-        var output = keras.layers.Dense(NumClasses, activation: "softmax").Apply(dropout3);
-
-        var model = keras.Model(inputs: input, outputs: output);
-        return model;
-    }
-
-    /// <summary>
-    /// Compile model with categorical crossentropy loss for multi-class classification
-    /// </summary>
-    public static void CompileModel(IModel model, float learningRate = 0.001f)
-    {
-        var optimizer = keras.optimizers.Adam(learning_rate: learningRate);
-
-        model.compile(
-            optimizer: optimizer,
-            loss: keras.losses.CategoricalCrossentropy(),
-            metrics: ["accuracy"]
-        );
-    }
+    public static readonly string[] ClassNames =
+    [
+        "None",
+        "Preparation",
+        "Backswing",
+        "Swing",
+        "FollowThrough",
+    ];
 }
 
 /// <summary>
-/// Training data structure for a single labeled frame
+/// ML.NET input data class for swing phase classification training.
+/// Features is a fixed-size vector of pose data from 3 frames.
+/// </summary>
+public class PhaseClassifierInput
+{
+    /// <summary>
+    /// Feature vector: 3 frames × 83 features + 1 handedness = 250 features
+    /// </summary>
+    [VectorType(SwingPhaseClassifierModel.TotalFeatures)]
+    public float[] Features { get; set; } = [];
+
+    /// <summary>
+    /// Target phase label (0-4)
+    /// </summary>
+    public uint Label { get; set; }
+}
+
+/// <summary>
+/// ML.NET output prediction class
+/// </summary>
+public class PhaseClassifierPrediction
+{
+    /// <summary>
+    /// Predicted class label
+    /// </summary>
+    public uint PredictedLabel { get; set; }
+
+    /// <summary>
+    /// Probability scores for each class
+    /// </summary>
+    [VectorType(SwingPhaseClassifierModel.NumClasses)]
+    public float[] Score { get; set; } = [];
+}
+
+/// <summary>
+/// Training data structure for a single labeled frame (used for loading JSON data)
 /// </summary>
 public class LabeledFrameData
 {
@@ -96,7 +95,7 @@ public class LabeledFrameData
     public required int PhaseLabel { get; set; }
 
     /// <summary>
-    /// Flattened feature vector for this frame (84 features)
+    /// Flattened feature vector for this frame (250 features with temporal context)
     /// </summary>
     public required float[] Features { get; set; }
 }
@@ -106,11 +105,6 @@ public class LabeledFrameData
 /// </summary>
 public class PhaseClassifierTrainingConfiguration
 {
-    public string LabeledFramesDirectory { get; set; } = "data/labeled_frames";
-    public string InputModelPath { get; set; } = "movenet/saved_model.pb";
-    public string ModelOutputPath { get; set; } = "swing_phase_classifier";
-    public int Epochs { get; set; } = 50;
-    public int BatchSize { get; set; } = 64;
-    public float ValidationSplit { get; set; } = 0.2f;
-    public float LearningRate { get; set; } = 0.001f;
+    public string LabeledFramesDirectory { get; set; } = "labeled_frames";
+    public string ModelOutputPath { get; set; } = "swingphaseclassifier.onnx";
 }

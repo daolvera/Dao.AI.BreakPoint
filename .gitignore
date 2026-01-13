@@ -363,3 +363,5 @@ MigrationBackup/
 FodyWeavers.xsd
 Dao.AI.BreakPoint.ModelTraining/data
 Dao.AI.BreakPoint.ModelTraining/movenet
+Dao.AI.BreakPoint.ModelTraining/phasedata
+.azure

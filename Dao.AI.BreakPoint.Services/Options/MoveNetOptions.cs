@@ -6,5 +6,5 @@ public class MoveNetOptions
 {
     public const string SectionName = "MoveNet";
     [Required]
-    public required string ModelPath { get; set; }
+    public required string ModelPath { get; set; } = "models/movenet_output_model.onnx";
 }

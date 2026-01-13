@@ -19,7 +19,6 @@ export interface PlayerWithStatsDto extends PlayerDto {
   matchesWon: number;
   matchesLost: number;
   winPercentage: number;
-  latestCoachingTips: string[];
   estimatedRating: number | null;
   bigServerScore: number;
   serveAndVolleyerScore: number;
@@ -27,4 +26,6 @@ export interface PlayerWithStatsDto extends PlayerDto {
   attackingBaselinerScore: number;
   solidBaselinerScore: number;
   counterPuncherScore: number;
+  /** AI-generated summary of the player's training history and progression */
+  trainingHistorySummary: string | null;
 }

@@ -11,12 +11,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Dao.AI.BreakPoint.AnalyzerFunction\Dao.AI.BreakPoint.AnalyzerFunction.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.ApiService\Dao.AI.BreakPoint.ApiService.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.Migrations\Dao.AI.BreakPoint.Migrations.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.AppHost" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.ApplicationInsights" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.Functions" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.KeyVault" Version="13.1.0" />
+    <PackageReference Include="Aspire.Hosting.Azure.Storage" Version="13.1.0" />
     <PackageReference Include="Aspire.Hosting.JavaScript" Version="13.1.0" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" Version="13.1.0" />
   </ItemGroup>

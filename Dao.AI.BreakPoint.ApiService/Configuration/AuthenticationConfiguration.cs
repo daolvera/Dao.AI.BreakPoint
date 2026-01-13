@@ -13,11 +13,16 @@ namespace Dao.AI.BreakPoint.ApiService.Configuration;
 
 public static class AuthenticationConfiguration
 {
-    public static void AddBreakPointAuthenticationAndAuthorization(this WebApplicationBuilder builder)
+    public static void AddBreakPointAuthenticationAndAuthorization(
+        this WebApplicationBuilder builder
+    )
     {
-        builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection(JwtOptions.SectionName));
+        builder.Services.Configure<JwtOptions>(
+            builder.Configuration.GetSection(JwtOptions.SectionName)
+        );
 
-        builder.Services.AddOptionsWithValidateOnStart<JwtOptions>()
+        builder
+            .Services.AddOptionsWithValidateOnStart<JwtOptions>()
             .Bind(builder.Configuration.GetSection(JwtOptions.SectionName))
             .ValidateDataAnnotations();
 
@@ -49,12 +54,24 @@ public static class AuthenticationConfiguration
                     ValidAudiences = [jwtOptions.Audience],
                     ValidateAudience = true,
                     ValidateLifetime = true,
-                    ValidateIssuerSigningKey = true
+                    ValidateIssuerSigningKey = true,
                 };
                 options.Events = new()
                 {
                     OnMessageReceived = context =>
                     {
+                        // First, check for SignalR access token in query string
+                        // SignalR sends the token via query string for WebSocket connections
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                        {
+                            context.Token = accessToken;
+                            return Task.CompletedTask;
+                        }
+
+                        // Fall back to cookie-based authentication for regular HTTP requests
                         var token = context.Request.Cookies[CodeLookUps.AccessTokenCookieKey];
 
                         if (!string.IsNullOrEmpty(token))
@@ -63,23 +80,26 @@ public static class AuthenticationConfiguration
                         }
 
                         return Task.CompletedTask;
-                    }
+                    },
                 };
             })
-            .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-            {
-                options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
-                options.Events.OnRedirectToLogin = context =>
+            .AddCookie(
+                CookieAuthenticationDefaults.AuthenticationScheme,
+                options =>
                 {
-                    context.Response.StatusCode = 401;
-                    return Task.CompletedTask;
-                };
-                options.Events.OnRedirectToAccessDenied = context =>
-                {
-                    context.Response.StatusCode = 403;
-                    return Task.CompletedTask;
-                };
-            })
+                    options.ExpireTimeSpan = TimeSpan.FromMinutes(5);
+                    options.Events.OnRedirectToLogin = context =>
+                    {
+                        context.Response.StatusCode = 401;
+                        return Task.CompletedTask;
+                    };
+                    options.Events.OnRedirectToAccessDenied = context =>
+                    {
+                        context.Response.StatusCode = 403;
+                        return Task.CompletedTask;
+                    };
+                }
+            )
             .AddGoogle(options =>
             {
                 options.SignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;

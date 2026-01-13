@@ -20,15 +20,15 @@
               <mat-icon class="text-sm">star</mat-icon>
               USTA {{ playerWithStats()!.estimatedRating | number : "1.1-1" }}
             </span>
-            } @if (playerWithStats()?.handedness !== undefined) {
+            } @if (playerWithStats()?.handedness != undefined) {
             <span class="flex items-center gap-1">
               <mat-icon class="text-sm">{{
-                playerWithStats()!.handedness === Handedness.LeftHanded
+                playerWithStats()!.handedness == Handedness.LeftHanded
                   ? "back_hand"
                   : "front_hand"
               }}</mat-icon>
               {{
-                playerWithStats()!.handedness === Handedness.LeftHanded
+                playerWithStats()!.handedness == Handedness.LeftHanded
                   ? "Left"
                   : "Right"
               }}-handed
@@ -49,7 +49,7 @@
     </div>
 
     <!-- Connection Status (only show when SignalR is needed) -->
-    @if (signalRNeeded()) { @if (isConnecting()) {
+    @if (isConnecting()) {
     <div class="mb-4 p-3 bg-blue-50 rounded-lg flex items-center gap-2">
       <mat-progress-spinner
         diameter="20"
@@ -57,14 +57,14 @@
       ></mat-progress-spinner>
       <span class="text-blue-700">Connecting for live updates...</span>
     </div>
-    } @else if (!signalRService.connectionState().connected) {
+    } @else if (!signalRService.connectionState().connected && needsSignalR()) {
     <div class="mb-4 p-3 bg-yellow-50 rounded-lg flex items-center gap-2">
       <mat-icon class="text-yellow-600">warning</mat-icon>
       <span class="text-yellow-700"
         >Live updates unavailable. Refresh to retry.</span
       >
     </div>
-    } }
+    }
 
     <!-- Quick Stats -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -119,27 +119,24 @@
       </mat-card>
     </div>
 
-    <!-- Latest Coaching Tips -->
-    @if (playerWithStats()?.latestCoachingTips?.length) {
+    <!-- Training History Summary -->
+    @if (playerWithStats()?.trainingHistorySummary) {
     <mat-card class="mb-8 p-4">
       <div class="flex items-center gap-2 mb-4">
-        <mat-icon class="text-primary-600">sports_tennis</mat-icon>
+        <mat-icon class="text-indigo-600">insights</mat-icon>
         <h2 class="text-xl font-semibold text-gray-900">
-          Latest Coaching Tips
+          Training Progress Summary
         </h2>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-        @for (tip of playerWithStats()!.latestCoachingTips; track $index) {
-        <div class="flex items-start gap-3 p-3 bg-gray-50 rounded-lg">
-          <div
-            class="flex-shrink-0 w-6 h-6 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center text-sm font-bold"
-          >
-            {{ $index + 1 }}
-          </div>
-          <p class="text-gray-700 text-sm">{{ tip }}</p>
-        </div>
-        }
+      <div class="p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+        <p class="text-gray-700 leading-relaxed">
+          {{ playerWithStats()!.trainingHistorySummary }}
+        </p>
       </div>
+      <p class="mt-3 text-xs text-gray-500 flex items-center gap-1">
+        <mat-icon class="text-xs">auto_awesome</mat-icon>
+        AI-generated summary based on your analysis history
+      </p>
     </mat-card>
     }
 
@@ -153,7 +150,7 @@
         mode="indeterminate"
       ></mat-progress-spinner>
     </div>
-    } @else if (totalAnalyses() === 0) {
+    } @else if (totalAnalyses() == 0) {
     <mat-card class="empty-state p-12 text-center">
       <mat-icon class="text-gray-300 text-6xl mb-4">video_library</mat-icon>
       <h3 class="text-xl font-medium text-gray-700 mb-2">No analyses yet</h3>
@@ -183,7 +180,7 @@
                 <mat-icon class="chip-icon">{{
                   getStatusIcon(request.status)
                 }}</mat-icon>
-                {{ request.status }}
+                {{ getStatusLabel(request.status) }}
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -199,11 +196,29 @@
             {{ formatDate(request.createdAt) }}
           </p>
 
-          <!-- Processing indicator -->
+          <!-- Processing indicator or Error message -->
+          @if (request.status == AnalysisStatus.Failed) {
+          <div class="mt-3 p-3 bg-red-50 rounded-lg">
+            <p class="text-sm text-red-700 flex items-center gap-2">
+              <mat-icon class="text-red-500">error</mat-icon>
+              {{ request.errorMessage || "Analysis failed. Please try again." }}
+            </p>
+            <button
+              mat-stroked-button
+              color="warn"
+              class="mt-2 text-xs"
+              (click)="deleteRequest(request.id)"
+            >
+              <mat-icon>delete</mat-icon>
+              Remove
+            </button>
+          </div>
+          } @else {
           <div class="mt-3">
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             <p class="text-xs text-gray-500 mt-1">Processing your swing...</p>
           </div>
+          }
         </mat-card-content>
       </mat-card>
       }
@@ -223,8 +238,7 @@
                 Completed
               </mat-chip>
             </mat-chip-set>
-            @if (result.qualityScore !== undefined && result.qualityScore !==
-            null) {
+            @if (result.qualityScore != null) {
             <span
               [class]="
                 'text-2xl font-bold ' + getScoreColor(result.qualityScore)
@@ -290,6 +304,7 @@
     <app-video-upload
       [playerId]="playerId()!"
       (videoUploaded)="onVideoUploaded($event)"
+      [strokeType]="selectedStrokeType()"
     ></app-video-upload>
     }
   </div>
