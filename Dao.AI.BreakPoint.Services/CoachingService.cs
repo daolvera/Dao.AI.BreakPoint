@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Dao.AI.BreakPoint.Data.Enums;
 using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
@@ -6,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Text.Json;
 
 namespace Dao.AI.BreakPoint.Services;
 
@@ -142,6 +142,7 @@ public class CoachingService : ICoachingService
             2. Tracks patterns in areas needing improvement
             3. Notes any progression or recurring challenges
             4. Maintains context from the previous summary if available
+            5. Maintain a positive attitude about the players progress
 
             Respond with ONLY the summary text, no JSON or formatting.
             Keep it under 500 characters to maintain context efficiency.
@@ -348,7 +349,7 @@ public class CoachingService : ICoachingService
     )
     {
         return $"""
-            I need {maxDrills} targeted drill recommendations for a tennis player's {strokeName}.
+            I need {maxDrills} drill recommendations for a tennis player's {strokeName}.
 
             **Player Profile:**
             - USTA NTRP Rating: {ustaRating:F1} ({playerLevel})
@@ -368,6 +369,8 @@ public class CoachingService : ICoachingService
             3. Build on drills the player found helpful (if any)
             4. Avoid patterns similar to drills marked as unhelpful
             5. Consider the player's training history for continuity
+
+            Keep the drills practical and easy to implement in regular practice.
 
             Respond with JSON only.
             """;

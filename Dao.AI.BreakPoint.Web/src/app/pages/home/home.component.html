@@ -1,3 +1,7 @@
+<!-- Show Dashboard when logged in, Landing Page when not -->
+@if (authService.userInfo()) {
+<app-dashboard></app-dashboard>
+} @else {
 <!-- Hero Section with Background Image -->
 <section
   class="hero-section relative min-h-screen flex items-center justify-center overflow-hidden"
@@ -108,3 +112,4 @@
     </button>
   </div>
 </section>
+}

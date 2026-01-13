@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, NgZone } from '@angular/core';
 import { Subject } from 'rxjs';
 import {
   AnalysisRequestDto,
@@ -17,6 +17,7 @@ export interface SignalRConnectionState {
 export class SignalRService {
   private connection: any = null;
   private tokenService = inject(TokenService);
+  private ngZone = inject(NgZone);
 
   public connectionState = signal<SignalRConnectionState>({ connected: false });
 
@@ -39,41 +40,55 @@ export class SignalRService {
     try {
       const signalR = await import('@microsoft/signalr');
 
-      const token = this.tokenService.getAccessToken();
-
       this.connection = new signalR.HubConnectionBuilder()
         .withUrl('/api/hubs/analysis', {
-          accessTokenFactory: () => token ?? '',
+          // Use arrow function to get fresh token on each request
+          accessTokenFactory: () => this.tokenService.getAccessToken() ?? '',
         })
         .withAutomaticReconnect()
+        .configureLogging(signalR.LogLevel.Information)
         .build();
 
-      // Register event handlers
+      // Register event handlers - wrap in NgZone to ensure Angular change detection
+      // and use void return to prevent any async response expectations
       this.connection.on(
         'AnalysisStatusChanged',
-        (request: AnalysisRequestDto) => {
-          this.analysisStatusChanged$.next(request);
+        (request: AnalysisRequestDto): void => {
+          this.ngZone.run(() => {
+            this.analysisStatusChanged$.next(request);
+          });
         }
       );
 
-      this.connection.on('AnalysisCompleted', (result: AnalysisResultDto) => {
-        this.analysisCompleted$.next(result);
-      });
+      this.connection.on(
+        'AnalysisCompleted',
+        (result: AnalysisResultDto): void => {
+          this.ngZone.run(() => {
+            this.analysisCompleted$.next(result);
+          });
+        }
+      );
 
       this.connection.on(
         'AnalysisFailed',
-        (analysisRequestId: number, errorMessage: string) => {
-          this.analysisFailed$.next({ analysisRequestId, errorMessage });
+        (analysisRequestId: number, errorMessage: string): void => {
+          this.ngZone.run(() => {
+            this.analysisFailed$.next({ analysisRequestId, errorMessage });
+          });
         }
       );
 
-      this.connection.onclose(() => {
-        this.connectionState.set({ connected: false });
+      this.connection.onclose((): void => {
+        this.ngZone.run(() => {
+          this.connectionState.set({ connected: false });
+        });
       });
 
-      this.connection.onreconnected(() => {
-        this.connectionState.set({ connected: true });
-        this.resubscribeToGroups();
+      this.connection.onreconnected((): void => {
+        this.ngZone.run(() => {
+          this.connectionState.set({ connected: true });
+          this.resubscribeToGroups();
+        });
       });
 
       await this.connection.start();

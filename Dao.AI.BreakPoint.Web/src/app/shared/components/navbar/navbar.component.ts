@@ -38,14 +38,7 @@ export class NavbarComponent {
   protected readonly isMobile = signal(false);
   protected readonly isMobileDrawerOpen = signal(false);
 
-  protected readonly navItems: NavItem[] = [
-    {
-      icon: 'dashboard',
-      label: 'Dashboard',
-      route: '/dashboard',
-      requiresAuth: true,
-    },
-  ];
+  protected readonly navItems: NavItem[] = [];
 
   constructor() {
     this.checkScreenSize();

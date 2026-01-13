@@ -43,7 +43,8 @@ var analyzerFunction = builder
     .WithReference(breakPointDb)
     .WithReference(blobStorage)
     .WithReference(insights)
-    .WithReference(keyVault);
+    .WithReference(keyVault)
+    .WithReference(breakPointApi);
 
 // Frontend App
 var breakPointApp = builder

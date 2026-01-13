@@ -4,8 +4,6 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Formats.Gif;
 using SixLabors.ImageSharp.PixelFormats;
 using CvPoint = OpenCvSharp.Point;
-using CvSize = OpenCvSharp.Size;
-using ISImage = SixLabors.ImageSharp.Image;
 
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
 
@@ -427,7 +425,7 @@ public class SkeletonOverlayService : ISkeletonOverlayService
             Cv2.PutText(
                 frame,
                 "FOCUS",
-                new CvPoint(frame.Width / 2 - 30, 25),
+                new CvPoint((frame.Width / 2) - 30, 25),
                 fontFace,
                 0.5,
                 BadColor,
@@ -493,8 +491,7 @@ public class SkeletonOverlayService : ISkeletonOverlayService
         return featureName
             .Replace("Velocity", "Vel")
             .Replace("Acceleration", "Acc")
-            .Replace("Position", "Pos")
-            .Replace("Angle", "∠");
+            .Replace("Position", "Pos");
     }
 
     /// <summary>

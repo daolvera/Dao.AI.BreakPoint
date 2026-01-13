@@ -1,10 +1,10 @@
-﻿using System.Text.Json;
-using Dao.AI.BreakPoint.Data.Enums;
+﻿using Dao.AI.BreakPoint.Data.Enums;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services.MoveNet;
 using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Dao.AI.BreakPoint.Services.SwingAnalyzer;
@@ -17,6 +17,8 @@ public class SwingAnalyzerService(
     IPlayerRepository PlayerRepository,
     IAnalysisRequestRepository AnalysisRequestRepository,
     IDrillRecommendationRepository DrillRecommendationRepository,
+    IAnalysisNotificationClient NotificationClient,
+    ILogger<SwingAnalyzerService> Logger,
     IOptions<MoveNetOptions> MoveNetOptions,
     IOptions<SwingPhaseClassifierOptions> PhaseClassifierOptions,
     IOptions<SwingQualityModelOptions> SwingQualityOptions,
@@ -78,6 +80,8 @@ public class SwingAnalyzerService(
         var bestResult = swingResults.OrderByDescending(r => r.OverallScore).First();
         var bestSwingIndex = swingResults.IndexOf(bestResult);
         var bestSwing = swingVideo.Swings[bestSwingIndex];
+        analysisRequest.Result?.UpdatedAt = DateTime.UtcNow;
+        analysisRequest.Result?.UpdatedByAppUserId = analysisRequest.CreatedByAppUserId;
 
         // Create or update the AnalysisResult
         analysisRequest.Result ??= new AnalysisResult
@@ -86,6 +90,8 @@ public class SwingAnalyzerService(
             PlayerId = analysisRequest.PlayerId,
             StrokeType = analysisRequest.StrokeType,
             VideoBlobUrl = analysisRequest.VideoBlobUrl,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByAppUserId = analysisRequest.CreatedByAppUserId,
         };
 
         // Populate the result with quality scores
@@ -193,10 +199,20 @@ public class SwingAnalyzerService(
             analysisRequest,
             analysisRequest.CreatedByAppUserId
         );
+
+        // Send SignalR notification that analysis is complete
+        if (analysisRequest.Result is not null)
+        {
+            Logger.LogInformation(
+                "Sending completion notification for analysis request {RequestId}",
+                analysisRequest.Id
+            );
+            await NotificationClient.NotifyCompletedAsync(analysisRequest.Result);
+        }
     }
 
     /// <summary>
-    /// Generate skeleton overlay GIF and upload to blob storage
+    /// Generate skeleton overlay GIF and key frame image, then upload to blob storage
     /// </summary>
     private async Task GenerateAndUploadSkeletonOverlayAsync(
         List<byte[]> allFrames,
@@ -209,13 +225,16 @@ public class SwingAnalyzerService(
     {
         try
         {
-            // Extract only the frames that correspond to this swing
+            // Extract only the frames that correspond to this swing using actual frame indices
             var swingFrameImages = new List<byte[]>();
-            for (int i = 0; i < swing.Frames.Count && i < allFrames.Count; i++)
+            foreach (var frameData in swing.Frames)
             {
-                // Assuming swing frames align with video frames
-                // In practice, you'd use frame indices from SwingData
-                swingFrameImages.Add(allFrames[Math.Min(i, allFrames.Count - 1)]);
+                // Use the actual frame index from the FrameData
+                int frameIndex = frameData.FrameIndex;
+                if (frameIndex >= 0 && frameIndex < allFrames.Count)
+                {
+                    swingFrameImages.Add(allFrames[frameIndex]);
+                }
             }
 
             if (swingFrameImages.Count == 0)
@@ -231,6 +250,49 @@ public class SwingAnalyzerService(
             var featureImportance = CoachingFeatureMapper.MapDeviationsToFeatureImportance(
                 allDeviations
             );
+
+            // Find the worst frame for the static key frame image
+            var worstFrameIndex = SkeletonOverlayService.FindWorstFrameIndex(
+                swing,
+                featureImportance
+            );
+
+            // Generate the static key frame image (PNG)
+            if (
+                worstFrameIndex >= 0
+                && worstFrameIndex < swingFrameImages.Count
+                && worstFrameIndex < swing.Frames.Count
+            )
+            {
+                var keyFrameImage = swingFrameImages[worstFrameIndex];
+                var keyFrameData = swing.Frames[worstFrameIndex];
+
+                var imageBytes = SkeletonOverlayService.GenerateOverlayImage(
+                    keyFrameImage,
+                    keyFrameData,
+                    featureImportance,
+                    result.OverallScore,
+                    videoWidth,
+                    videoHeight
+                );
+
+                if (imageBytes.Length > 0)
+                {
+                    var imageFileName = $"skeleton-overlay-{analysisRequest.Id}.png";
+                    using var imageStream = new MemoryStream(imageBytes);
+
+                    var imageUrl = await BlobStorageService.UploadImageAsync(
+                        imageStream,
+                        imageFileName,
+                        "image/png"
+                    );
+
+                    if (analysisRequest.Result != null)
+                    {
+                        analysisRequest.Result.SkeletonOverlayUrl = imageUrl;
+                    }
+                }
+            }
 
             // Generate the skeleton overlay GIF
             var gifBytes = SkeletonOverlayService.GenerateOverlayGif(
@@ -259,15 +321,17 @@ public class SwingAnalyzerService(
             );
 
             // Store the URL in the result
-            if (analysisRequest.Result != null)
-            {
-                analysisRequest.Result.SkeletonOverlayGifUrl = gifUrl;
-            }
+            analysisRequest.Result?.SkeletonOverlayGifUrl = gifUrl;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Log error but don't fail the analysis if overlay generation fails
             // The skeleton overlay is supplementary to the main analysis
+            Logger.LogError(
+                ex,
+                "Failed to generate skeleton overlay for analysis request {RequestId}",
+                analysisRequest.Id
+            );
         }
     }
 }

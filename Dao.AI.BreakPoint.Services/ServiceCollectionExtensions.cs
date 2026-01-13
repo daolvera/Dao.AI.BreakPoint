@@ -130,4 +130,23 @@ public static class ServiceCollectionExtensions
         });
         return services;
     }
+
+    /// <summary>
+    /// Registers the analysis notification client for sending notifications to the API service.
+    /// Used by background services (e.g., Azure Functions) to trigger SignalR notifications.
+    /// </summary>
+    /// <param name="services">The service collection</param>
+    /// <param name="apiBaseUrl">The base URL of the API service (e.g., https://localhost:5001)</param>
+    public static IServiceCollection AddAnalysisNotificationClient(
+        this IServiceCollection services,
+        string apiBaseUrl
+    )
+    {
+        services.AddHttpClient<IAnalysisNotificationClient, AnalysisNotificationClient>(client =>
+        {
+            client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
+            client.DefaultRequestHeaders.Add("Accept", "application/json");
+        });
+        return services;
+    }
 }

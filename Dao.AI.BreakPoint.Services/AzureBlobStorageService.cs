@@ -98,19 +98,16 @@ public class AzureBlobStorageService : IBlobStorageService
     {
         var blobClient = GetBlobClientFromUrl(blobUrl);
 
-        // Check if the connection is using development storage (Azurite)
-        // Azurite doesn't require SAS tokens for local development
-        if (_usesDevelopmentStorage)
-        {
-            return Task.FromResult(blobUrl);
-        }
-
         var sasBuilder = new BlobSasBuilder
         {
             BlobContainerName = blobClient.BlobContainerName,
             BlobName = blobClient.Name,
             Resource = "b",
             ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes),
+            // Allow HTTP for Azurite (local development), HTTPS only for production
+            Protocol = _usesDevelopmentStorage 
+                ? SasProtocol.HttpsAndHttp 
+                : SasProtocol.Https,
         };
 
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
@@ -124,13 +121,21 @@ public class AzureBlobStorageService : IBlobStorageService
         var uri = new Uri(blobUrl);
         var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
 
-        if (pathSegments.Length < 2)
+        // Azurite URLs include account name as first segment: /devstoreaccount1/container/blob
+        // Azure Storage URLs don't: /container/blob
+        int containerIndex = 0;
+        if (_usesDevelopmentStorage && pathSegments.Length > 0 && pathSegments[0] == "devstoreaccount1")
+        {
+            containerIndex = 1;
+        }
+
+        if (pathSegments.Length < containerIndex + 2)
         {
             throw new ArgumentException($"Invalid blob URL format: {blobUrl}");
         }
 
-        var containerName = pathSegments[0];
-        var blobName = string.Join("/", pathSegments.Skip(1));
+        var containerName = pathSegments[containerIndex];
+        var blobName = string.Join("/", pathSegments.Skip(containerIndex + 1));
 
         var containerClient = _blobServiceClient.GetBlobContainerClient(containerName);
         return containerClient.GetBlobClient(blobName);

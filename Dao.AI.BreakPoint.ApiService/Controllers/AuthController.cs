@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Dao.AI.BreakPoint.ApiService.Utilities;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
@@ -13,7 +14,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Protocols.Configuration;
-using System.Security.Claims;
 
 namespace Dao.AI.BreakPoint.ApiService.Controllers;
 
@@ -26,7 +26,7 @@ public class AuthController(
     IAppUserRepository AppUserRepository,
     IConfiguration Configuration,
     ILogger<AuthController> Logger
-    ) : ControllerBase
+) : ControllerBase
 {
     [Authorize]
     [HttpGet("me")]
@@ -39,18 +39,32 @@ public class AuthController(
         {
             return Unauthorized();
         }
-        var player = await PlayerService.GetByAppUserIdAsync(user.Id) ?? throw new NotFoundException($"Player for {user.UserName}");
-        return Ok(new UserDto
-        {
-            Id = user.Id,
-            Email = user.Email,
-            DisplayName = user.DisplayName,
-            IsProfileComplete = user.IsProfileComplete,
-            PlayerId = player.Id
-        });
+        var player =
+            await PlayerService.GetByAppUserIdAsync(user.Id)
+            ?? throw new NotFoundException($"Player for {user.UserName}");
+        return Ok(
+            new UserDto
+            {
+                Id = user.Id,
+                Email = user.Email,
+                DisplayName = user.DisplayName,
+                IsProfileComplete = user.IsProfileComplete,
+                PlayerId = player.Id,
+            }
+        );
     }
 
     [Authorize]
+    [HttpDelete("logout")]
+    public IActionResult Logout()
+    {
+        Response.Cookies.Delete(CodeLookUps.AccessTokenCookieKey);
+        Response.Cookies.Delete(CodeLookUps.RefreshTokenCookieKey);
+        Response.Cookies.Delete(CodeLookUps.IsAuthenticatedCookieKey);
+
+        return Ok();
+    }
+
     [HttpGet("refresh")]
     public async Task<IActionResult> RefreshToken()
     {
@@ -69,21 +83,15 @@ public class AuthController(
     }
 
     [Authorize]
-    [HttpDelete("logout")]
-    public IActionResult Logout()
-    {
-        Response.Cookies.Delete(CodeLookUps.AccessTokenCookieKey);
-        Response.Cookies.Delete(CodeLookUps.RefreshTokenCookieKey);
-        Response.Cookies.Delete(CodeLookUps.IsAuthenticatedCookieKey);
-
-        return Ok();
-    }
-
-    [Authorize]
     [HttpPost("complete")]
-    public async Task<IActionResult> CompleteProfile([FromBody] CompleteProfileRequest completeProfileRequest)
+    public async Task<IActionResult> CompleteProfile(
+        [FromBody] CompleteProfileRequest completeProfileRequest
+    )
     {
-        var wasSuccessfullyCompleted = await PlayerService.CompleteAsync(completeProfileRequest, User.GetAppUserId());
+        var wasSuccessfullyCompleted = await PlayerService.CompleteAsync(
+            completeProfileRequest,
+            User.GetAppUserId()
+        );
         return wasSuccessfullyCompleted ? Ok() : BadRequest();
     }
 
@@ -91,7 +99,9 @@ public class AuthController(
     [EndpointDescription("Handle the external provider callback to complete authentication")]
     public async Task<IActionResult> HandleChallenge()
     {
-        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        var result = await HttpContext.AuthenticateAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme
+        );
         if (!result.Succeeded)
         {
             return BadRequest("Authentication failed");
@@ -101,15 +111,15 @@ public class AuthController(
         var email = result.Principal.FindFirst(ClaimTypes.Email)?.Value;
         var name = result.Principal.FindFirst(ClaimTypes.Name)?.Value;
 
-        string applicationBaseUrl = Configuration["BreakPointAppUrl"] ??
-            throw new InvalidConfigurationException("BreakPointAppUrl is not configured");
+        string applicationBaseUrl =
+            Configuration["BreakPointAppUrl"]
+            ?? throw new InvalidConfigurationException("BreakPointAppUrl is not configured");
         if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(email) || string.IsNullOrEmpty(name))
         {
             return Redirect($"{applicationBaseUrl}/auth/error?message=missing_claims");
         }
 
         var user = await FindOrCreateUserFromProvider(email, name);
-
 
         if (user == null)
         {
@@ -121,12 +131,18 @@ public class AuthController(
             var tokens = await TokenService.GenerateTokenAsync(user);
 
             SetSecureTokenCookies(tokens);
-            string redirectUrl = user.IsProfileComplete ? $"{applicationBaseUrl}" : $"{applicationBaseUrl}/auth/complete";
+            string redirectUrl = user.IsProfileComplete
+                ? $"{applicationBaseUrl}"
+                : $"{applicationBaseUrl}/auth/complete";
             return Redirect(redirectUrl);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Unexpected error during external provider login for email: {Email}", email);
+            Logger.LogError(
+                ex,
+                "Unexpected error during external provider login for email: {Email}",
+                email
+            );
             return Redirect($"{applicationBaseUrl}/auth/error?message=unexpected_error");
         }
     }
@@ -136,19 +152,16 @@ public class AuthController(
     [EndpointDescription("Begins the login using Google as the provided OAuth External Provider")]
     public ChallengeResult BeginGoogleLogin()
     {
-        var properties = new AuthenticationProperties { RedirectUri = Url.Action(nameof(HandleChallenge)) };
+        var properties = new AuthenticationProperties
+        {
+            RedirectUri = Url.Action(nameof(HandleChallenge)),
+        };
 
-        return Challenge(
-            properties,
-            GoogleDefaults.AuthenticationScheme
-        );
+        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
     #endregion
 
-    private async Task<AppUser?> FindOrCreateUserFromProvider(
-        string email,
-        string name
-    )
+    private async Task<AppUser?> FindOrCreateUserFromProvider(string email, string name)
     {
         var user = await UserManager.FindByEmailAsync(email);
         if (user is null)
@@ -160,10 +173,7 @@ public class AuthController(
                 CreatedAt = DateTime.UtcNow,
                 IsProfileComplete = false,
                 DisplayName = name,
-                Player = new Player()
-                {
-                    Name = name
-                },
+                Player = new Player() { Name = name },
                 EmailConfirmed = true, // External providers pre-verify emails
             };
 
@@ -181,10 +191,10 @@ public class AuthController(
     {
         var cookieOptions = new CookieOptions
         {
-            HttpOnly = true,          // Prevents JavaScript access
-            Secure = true,            // HTTPS only
-            SameSite = SameSiteMode.Strict,  // CSRF protection
-            Expires = tokens.ExpiresAt
+            HttpOnly = true, // Prevents JavaScript access
+            Secure = true, // HTTPS only
+            SameSite = SameSiteMode.Strict, // CSRF protection
+            Expires = tokens.ExpiresAt,
         };
 
         var refreshCookieOptions = new CookieOptions
@@ -192,20 +202,32 @@ public class AuthController(
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddDays(7) // Refresh token expires in 7 days
+            Expires = DateTime.UtcNow.AddDays(7), // Refresh token expires in 7 days
         };
 
         // Set access token cookie
-        Response.Cookies.Append(CodeLookUps.AccessTokenCookieKey, tokens.AccessToken, cookieOptions);
+        Response.Cookies.Append(
+            CodeLookUps.AccessTokenCookieKey,
+            tokens.AccessToken,
+            cookieOptions
+        );
 
         // Set refresh token cookie
-        Response.Cookies.Append(CodeLookUps.RefreshTokenCookieKey, tokens.RefreshToken, refreshCookieOptions);
+        Response.Cookies.Append(
+            CodeLookUps.RefreshTokenCookieKey,
+            tokens.RefreshToken,
+            refreshCookieOptions
+        );
 
-        Response.Cookies.Append(CodeLookUps.IsAuthenticatedCookieKey, "true", new CookieOptions
-        {
-            Secure = true,
-            SameSite = SameSiteMode.Strict,
-            Expires = tokens.ExpiresAt
-        });
+        Response.Cookies.Append(
+            CodeLookUps.IsAuthenticatedCookieKey,
+            "true",
+            new CookieOptions
+            {
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = tokens.ExpiresAt,
+            }
+        );
     }
 }

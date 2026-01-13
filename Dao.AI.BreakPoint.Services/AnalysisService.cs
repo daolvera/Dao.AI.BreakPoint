@@ -26,7 +26,7 @@ public class AnalysisService(
     )
     {
         // Verify player exists
-        var player =
+        var _ =
             await playerRepository.GetByIdAsync(request.PlayerId)
             ?? throw new NotFoundException($"Player with ID {request.PlayerId}");
 
@@ -181,6 +181,14 @@ public class AnalysisService(
         {
             dto.SkeletonOverlayUrl = await blobStorageService.GetSasUrlAsync(
                 dto.SkeletonOverlayUrl,
+                SasExpiryMinutes
+            );
+        }
+
+        if (!string.IsNullOrEmpty(dto.SkeletonOverlayGifUrl))
+        {
+            dto.SkeletonOverlayGifUrl = await blobStorageService.GetSasUrlAsync(
+                dto.SkeletonOverlayGifUrl,
                 SasExpiryMinutes
             );
         }

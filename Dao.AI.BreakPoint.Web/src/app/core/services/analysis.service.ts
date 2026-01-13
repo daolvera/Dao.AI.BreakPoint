@@ -134,9 +134,11 @@ export class AnalysisService {
   }
 
   /**
-   * Update from SignalR completion notification
+   * Update from SignalR completion notification.
+   * Re-fetches from API to get URLs with SAS tokens.
    */
   updateResultFromNotification(result: AnalysisResultDto): void {
+    // Immediately update UI with the notification data
     this.currentResult.set(result);
 
     // Remove from pending requests
@@ -156,5 +158,8 @@ export class AnalysisService {
       },
       ...history,
     ]);
+
+    // Re-fetch from API to get URLs with SAS tokens for blob access
+    this.getResult(result.analysisRequestId).subscribe();
   }
 }

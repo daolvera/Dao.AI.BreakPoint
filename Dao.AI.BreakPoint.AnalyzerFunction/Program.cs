@@ -40,4 +40,13 @@ builder.Services.AddSwingAnalyzerServices(builder.Configuration);
 builder.Services.AddAnalysisServices();
 builder.Services.AddBreakPointServices();
 
+// Register analysis notification client for SignalR notifications
+var apiBaseUrl = builder.Configuration["services:breakpointapi:https:0"]
+    ?? builder.Configuration["services:breakpointapi:http:0"]
+    ?? builder.Configuration["BreakPointApiUrl"]
+    ?? throw new InvalidOperationException(
+        "BreakPointApiUrl configuration is required for analysis notifications"
+    );
+builder.Services.AddAnalysisNotificationClient(apiBaseUrl);
+
 builder.Build().Run();

@@ -1,17 +1,89 @@
 # Dao.AI.BreakPoint
 
-This project is intended for showcasing enterprise practices in a real application. The central focus of the project is a custom AI model to analyze a tennis swing and give coaching feedback to the user to improve.
-This project will be coded during the DAO Codes Twitch Stream as well as offstream. Visit https://www.twitch.tv/daolveradev to watch the development of this project live.
+BreakPoint.AI is an AI-powered tennis coaching application that analyzes tennis swings and provides personalized feedback to help players improve their technique.
+
+This project showcases enterprise practices in a real application, featuring a custom AI model for tennis swing analysis. Development is streamed live on the [DAO Codes Twitch Stream](https://www.twitch.tv/daolveradev).
+
+## Features
+
+- **AI Swing Analysis**: Upload videos of your tennis swing for automated analysis
+- **Pose Estimation**: MoveNet-based pose detection for accurate body tracking
+- **Phase Classification**: LSTM-based swing phase detection (preparation, backswing, contact, follow-through)
+- **AI Coaching**: Azure OpenAI-powered personalized coaching recommendations
+- **Drill Recommendations**: Targeted drills based on identified areas for improvement
 
 ## Architecture
 
-The main application is an Aspire application hosting a C# API, an Angular Frontend, and a sql database
-This uses standard client server architecture.
+<!-- TODO: Add architecture diagram -->
 
-### API
+The application is built on .NET Aspire, orchestrating multiple services in a distributed architecture.
 
-The API uses a controller-service-repository pattern to interact with the database and the frontend.
-Dao.AI.BreakPoint.Data is the EF Core data entity project. All entities and related objects go here.
-Dao.AI.BreakPoint.ApiService holds the controller layer and handles the authentication setup.
-Dao.AI.BreakPoint.Services holds the services and repositories and the connecting DTOs and SearchParams objects. Any needed models for frontend communication go here.
-Dao.AI.BreakPoint.Web holds the angular front end which is the main desktop application for both users and admins to interact with BreakPoint.AI
+### Solution Structure
+
+| Project | Description |
+|---------|-------------|
+| **Dao.AI.BreakPoint.AppHost** | .NET Aspire orchestration host - manages all services and infrastructure |
+| **Dao.AI.BreakPoint.ApiService** | ASP.NET Core Web API with controllers, authentication, and SignalR hubs |
+| **Dao.AI.BreakPoint.Services** | Business logic layer with services, repositories, DTOs, and AI/ML inference |
+| **Dao.AI.BreakPoint.Data** | EF Core data entities and database context |
+| **Dao.AI.BreakPoint.Migrations** | Database migration worker service |
+| **Dao.AI.BreakPoint.AnalyzerFunction** | Azure Functions project for background swing analysis processing |
+| **Dao.AI.BreakPoint.ModelTraining** | ML.NET model training for swing quality prediction |
+| **Dao.AI.BreakPoint.ServiceDefaults** | Shared Aspire service configuration and defaults |
+| **Dao.AI.BreakPoint.Web** | Angular frontend application |
+| **Dao.AI.BreakPoint.Services.Tests** | Unit tests for the services layer |
+
+### Infrastructure
+
+- **Database**: PostgreSQL
+- **Blob Storage**: Azure Blob Storage (Azurite emulator for local development)
+- **Monitoring**: Azure Application Insights
+- **Secrets**: Azure Key Vault
+- **Real-time**: SignalR for analysis progress notifications
+
+### API Layer
+
+The API follows a **controller-service-repository** pattern:
+
+- **Controllers**: Handle HTTP requests, authentication, and request validation
+- **Services**: Implement business logic and orchestrate operations
+- **Repositories**: Abstract data access using EF Core
+
+### AI/ML Pipeline
+
+1. **Video Upload**: User uploads tennis swing video
+2. **Pose Estimation**: MoveNet model extracts body keypoints from each frame
+3. **Phase Classification**: LSTM model identifies swing phases
+4. **Quality Analysis**: ML.NET model evaluates swing quality
+5. **Coaching Generation**: Azure OpenAI generates personalized feedback
+6. **Drill Recommendation**: System suggests targeted practice drills
+
+## Getting Started
+
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Node.js](https://nodejs.org/) (for Angular frontend)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop) (for local infrastructure)
+
+### Running Locally
+
+1. Clone the repository
+2. Open the solution in Visual Studio 2022 or later
+3. Set `Dao.AI.BreakPoint.AppHost` as the startup project
+4. Press F5 to run
+
+The Aspire host will automatically start:
+- PostgreSQL database
+- Azurite storage emulator
+- API service
+- Angular frontend (available at http://localhost:3000)
+- Azure Functions analyzer
+
+## Contributing
+
+This project is developed live on Twitch. Feel free to watch, learn, and contribute!
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

@@ -1,8 +1,8 @@
 <div class="skeleton-viewer">
   @if (imageUrl() || gifUrl()) {
   <div class="viewer-container relative">
-    <!-- Static Image / Key Frame -->
-    @if (!showGif() && imageUrl()) {
+    <!-- Static Image / Key Frame (only show if not in GIF mode and image exists) -->
+    @if (!canShowGif() && imageUrl()) {
     <img
       [src]="imageUrl()"
       [alt]="altText()"
@@ -10,8 +10,8 @@
     />
     }
 
-    <!-- Animated GIF -->
-    @if (showGif() && gifUrl()) {
+    <!-- Animated GIF (show if in GIF mode, or if only GIF exists) -->
+    @if (canShowGif() && gifUrl()) {
     <img
       [src]="gifUrl()"
       [alt]="altText() + ' Animation'"
@@ -35,7 +35,7 @@
 
   <!-- Caption -->
   <p class="text-sm text-gray-500 mt-2 text-center">
-    {{ showGif() ? "Full Swing Animation" : "Key Frame Analysis" }}
+    {{ canShowGif() ? "Full Swing Animation" : "Key Frame Analysis" }}
     @if (imageUrl() && gifUrl()) {
     <span class="text-xs">(Click button to toggle)</span>
     }
