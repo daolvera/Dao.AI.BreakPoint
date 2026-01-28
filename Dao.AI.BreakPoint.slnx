@@ -3,9 +3,7 @@
     <File Path=".github/agents/BreakPointAIDev.agent.md" />
     <File Path=".github/agents/BreakPointFullStackDev.agent.md" />
     <File Path=".github/instructions/BreakPointCSharpDev.instructions.md" />
-    <File Path=".github/workflows/ci.yml" />
-    <File Path=".github/workflows/deploy-dev.yml" />
-    <File Path=".github/workflows/deploy-production.yml" />
+    <File Path=".github/workflows/azure-dev.yml" />
     <File Path=".gitignore" />
     <File Path="CustomModelPlanning.md" />
     <File Path="README.md" />
