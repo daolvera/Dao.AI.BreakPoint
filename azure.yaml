@@ -6,3 +6,8 @@ services:
     language: dotnet
     project: ./Dao.AI.BreakPoint.AppHost/Dao.AI.BreakPoint.AppHost.csproj
     host: containerapp
+
+hooks:
+  postdeploy:
+    shell: pwsh
+    run: ./infra/hooks/postdeploy.ps1
