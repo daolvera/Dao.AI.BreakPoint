@@ -23,65 +23,69 @@ import { VideoUploadService } from '../../../core/services/video-upload.service'
         (drop)="onDrop($event)"
       >
         @if (isUploading()) {
-        <div class="upload-progress">
-          <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-          <p>Uploading video...</p>
-        </div>
+          <div class="upload-progress">
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            <p>Uploading video...</p>
+          </div>
         } @else if (uploadedVideo()) {
-        <div class="upload-success">
-          <mat-icon>check_circle</mat-icon>
-          <p>Video uploaded successfully!</p>
-          <button mat-button color="primary" (click)="resetUpload()">
-            Upload Another
-          </button>
-        </div>
+          <div class="upload-success">
+            <mat-icon>check_circle</mat-icon>
+            <p>Video uploaded successfully!</p>
+            <button mat-button color="primary" (click)="resetUpload()">
+              Upload Another
+            </button>
+          </div>
         } @else {
-        <div class="upload-prompt">
-          <mat-icon>cloud_upload</mat-icon>
-          <h3>Upload Tennis Swing Video</h3>
-          <p>Drag and drop your video here or click to select</p>
-          <p class="upload-requirements">
-            • Supported formats: MP4, WebM, OGG, MOV, AVI<br />
-            • Maximum duration: 60 seconds<br />
-            • Maximum size: 100MB
-          </p>
+          <div class="upload-prompt">
+            <mat-icon>cloud_upload</mat-icon>
+            <h3>Upload Tennis Swing Video</h3>
+            <p>Drag and drop your video here or click to select</p>
+            <p class="upload-requirements">
+              • Supported formats: MP4, WebM, OGG, MOV, AVI<br />
+              • Maximum duration: 60 seconds<br />
+              • Maximum size: 100MB
+            </p>
 
-          <input
-            #fileInput
-            type="file"
-            accept="video/*"
-            (change)="onFileSelected($event)"
-            style="display: none;"
-          />
+            <input
+              #fileInput
+              type="file"
+              accept="video/*"
+              (change)="onFileSelected($event)"
+              style="display: none;"
+            />
 
-          <button mat-raised-button color="primary" (click)="fileInput.click()">
-            <mat-icon>add</mat-icon>
-            Select Video
-          </button>
-        </div>
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="fileInput.click()"
+            >
+              <mat-icon>add</mat-icon>
+              Select Video
+            </button>
+          </div>
         }
       </div>
 
       @if (selectedFile() && !isUploading()) {
-      <div class="file-info">
-        <h4>Selected File:</h4>
-        <p>{{ selectedFile()?.name }}</p>
-        <p>Size: {{ formatFileSize(selectedFile()?.size || 0) }}</p>
+        <div class="file-info">
+          <h4>Selected File:</h4>
+          <p>{{ selectedFile()?.name }}</p>
+          <p>Size: {{ formatFileSize(selectedFile()?.size || 0) }}</p>
 
-        <div class="upload-actions">
-          <button
-            mat-raised-button
-            color="primary"
-            (click)="uploadVideo()"
-            [disabled]="!selectedFile()"
-          >
-            <mat-icon>upload</mat-icon>
-            Upload Video
-          </button>
+          <div class="upload-actions">
+            <button
+              mat-raised-button
+              color="primary"
+              (click)="uploadVideo()"
+              [disabled]="!selectedFile()"
+            >
+              <mat-icon>upload</mat-icon>
+              Upload Video
+            </button>
 
-          <button mat-button (click)="clearSelection()">Cancel</button>
+            <button mat-button (click)="clearSelection()">Cancel</button>
+          </div>
         </div>
-      </div>
       }
     </div>
   `,
@@ -154,15 +158,16 @@ export class VideoUploadComponent {
       .subscribe({
         next: (result: AnalysisRequestDto) => {
           this.uploadedVideo.set(result);
+          this.selectedFile.set(null);
           this.videoUploaded.emit(result);
           this.toastService.success(
-            'Video uploaded successfully! Analysis started.'
+            'Video uploaded successfully! Analysis started.',
           );
         },
         error: (error: any) => {
           this.isUploading.set(false);
           this.toastService.error(
-            error?.message || 'An error occurred during upload'
+            error?.message || 'An error occurred during upload',
           );
         },
         complete: () => {
