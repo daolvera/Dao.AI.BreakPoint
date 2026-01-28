@@ -29,6 +29,10 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "env-config.js",
+                "input": "src"
               }
             ],
             "styles": [

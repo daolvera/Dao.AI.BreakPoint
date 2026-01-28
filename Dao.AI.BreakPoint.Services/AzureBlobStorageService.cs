@@ -2,6 +2,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Azure.Storage.Sas;
 using Dao.AI.BreakPoint.Services.Options;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Dao.AI.BreakPoint.Services;
@@ -16,13 +17,18 @@ public class AzureBlobStorageService : IBlobStorageService
     private readonly BlobContainerClient _videoContainerClient;
     private readonly BlobContainerClient _imageContainerClient;
     private readonly bool _usesDevelopmentStorage;
+    private readonly ILogger<AzureBlobStorageService>? _logger;
 
     /// <summary>
     /// Creates a new AzureBlobStorageService using the provided options.
     /// Used for direct configuration (non-Aspire scenarios).
     /// </summary>
-    public AzureBlobStorageService(IOptions<BlobStorageOptions> options)
+    public AzureBlobStorageService(
+        IOptions<BlobStorageOptions> options,
+        ILogger<AzureBlobStorageService>? logger = null
+    )
     {
+        _logger = logger;
         var storageOptions = options.Value;
         _blobServiceClient = new BlobServiceClient(storageOptions.ConnectionString);
         _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
@@ -36,14 +42,23 @@ public class AzureBlobStorageService : IBlobStorageService
                 "UseDevelopmentStorage=true",
                 StringComparison.OrdinalIgnoreCase
             ) ?? false;
+
+        _logger?.LogInformation(
+            "AzureBlobStorageService initialized with connection string. Development storage: {IsDev}",
+            _usesDevelopmentStorage
+        );
     }
 
     /// <summary>
     /// Creates a new AzureBlobStorageService using the Aspire-injected BlobServiceClient.
     /// Used when running with .NET Aspire orchestration.
     /// </summary>
-    public AzureBlobStorageService(BlobServiceClient blobServiceClient)
+    public AzureBlobStorageService(
+        BlobServiceClient blobServiceClient,
+        ILogger<AzureBlobStorageService>? logger = null
+    )
     {
+        _logger = logger;
         _blobServiceClient = blobServiceClient;
         _videoContainerClient = _blobServiceClient.GetBlobContainerClient(
             BlobStorageOptions.DefaultVideoContainerName
@@ -55,6 +70,13 @@ public class AzureBlobStorageService : IBlobStorageService
         _usesDevelopmentStorage =
             _blobServiceClient.Uri.Host.Contains("127.0.0.1")
             || _blobServiceClient.Uri.Host.Contains("localhost");
+
+        _logger?.LogInformation(
+            "AzureBlobStorageService initialized with BlobServiceClient. Account: {Account}, CanGenerateSas: {CanGenerateSas}, Development storage: {IsDev}",
+            _blobServiceClient.AccountName,
+            _videoContainerClient.CanGenerateSasUri,
+            _usesDevelopmentStorage
+        );
     }
 
     public async Task<string> UploadVideoAsync(Stream stream, string fileName, string contentType)
@@ -94,7 +116,7 @@ public class AzureBlobStorageService : IBlobStorageService
         await blobClient.DeleteIfExistsAsync();
     }
 
-    public Task<string> GetSasUrlAsync(string blobUrl, int expiryMinutes = 60)
+    public async Task<string> GetSasUrlAsync(string blobUrl, int expiryMinutes = 60)
     {
         var blobClient = GetBlobClientFromUrl(blobUrl);
 
@@ -105,15 +127,40 @@ public class AzureBlobStorageService : IBlobStorageService
             Resource = "b",
             ExpiresOn = DateTimeOffset.UtcNow.AddMinutes(expiryMinutes),
             // Allow HTTP for Azurite (local development), HTTPS only for production
-            Protocol = _usesDevelopmentStorage 
-                ? SasProtocol.HttpsAndHttp 
-                : SasProtocol.Https,
+            Protocol = _usesDevelopmentStorage ? SasProtocol.HttpsAndHttp : SasProtocol.Https,
         };
 
         sasBuilder.SetPermissions(BlobSasPermissions.Read);
 
-        var sasUri = blobClient.GenerateSasUri(sasBuilder);
-        return Task.FromResult(sasUri.ToString());
+        // Try to generate SAS using shared key (works with connection strings)
+        // If that fails (e.g., when using Managed Identity), use User Delegation SAS
+        if (blobClient.CanGenerateSasUri)
+        {
+            _logger?.LogDebug(
+                "Generating SAS URL using shared key for blob: {BlobName}",
+                blobClient.Name
+            );
+            var sasUri = blobClient.GenerateSasUri(sasBuilder);
+            return sasUri.ToString();
+        }
+
+        // Use User Delegation SAS for Azure AD/Managed Identity authentication
+        _logger?.LogDebug(
+            "Generating User Delegation SAS URL (Managed Identity) for blob: {BlobName}",
+            blobClient.Name
+        );
+        var userDelegationKey = await _blobServiceClient.GetUserDelegationKeyAsync(
+            DateTimeOffset.UtcNow,
+            DateTimeOffset.UtcNow.AddMinutes(expiryMinutes)
+        );
+
+        var sasToken = sasBuilder.ToSasQueryParameters(
+            userDelegationKey.Value,
+            _blobServiceClient.AccountName
+        );
+        var uriBuilder = new UriBuilder(blobClient.Uri) { Query = sasToken.ToString() };
+
+        return uriBuilder.Uri.ToString();
     }
 
     private BlobClient GetBlobClientFromUrl(string blobUrl)
@@ -124,7 +171,11 @@ public class AzureBlobStorageService : IBlobStorageService
         // Azurite URLs include account name as first segment: /devstoreaccount1/container/blob
         // Azure Storage URLs don't: /container/blob
         int containerIndex = 0;
-        if (_usesDevelopmentStorage && pathSegments.Length > 0 && pathSegments[0] == "devstoreaccount1")
+        if (
+            _usesDevelopmentStorage
+            && pathSegments.Length > 0
+            && pathSegments[0] == "devstoreaccount1"
+        )
         {
             containerIndex = 1;
         }

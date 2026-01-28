@@ -27,7 +27,7 @@ builder.Services.ConfigureFunctionsApplicationInsights();
 builder.AddNpgsqlDbContext<BreakPointDbContext>("BreakPointDb");
 
 // Configure Azure Blob Storage using Aspire extension
-builder.AddAzureBlobServiceClient("BlobStorage");
+builder.AddAzureBlobServiceClient("blobstorage");
 
 // Register video processing service
 builder.Services.AddSingleton<IVideoProcessingService, OpenCvVideoProcessingService>();
@@ -41,7 +41,8 @@ builder.Services.AddAnalysisServices();
 builder.Services.AddBreakPointServices();
 
 // Register analysis notification client for SignalR notifications
-var apiBaseUrl = builder.Configuration["services:breakpointapi:https:0"]
+var apiBaseUrl =
+    builder.Configuration["services:breakpointapi:https:0"]
     ?? builder.Configuration["services:breakpointapi:http:0"]
     ?? builder.Configuration["BreakPointApiUrl"]
     ?? throw new InvalidOperationException(

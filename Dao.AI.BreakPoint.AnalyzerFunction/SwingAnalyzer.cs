@@ -19,10 +19,8 @@ public class SwingAnalyzer(
     /// </summary>
     [Function(nameof(SwingAnalyzer))]
     public async Task Run(
-        [BlobTrigger(
-            "swing-analysis/{analysisRequestFileName}"
-        )]
-        Stream videoStream,
+        [BlobTrigger("swing-analysis/{analysisRequestFileName}", Connection = "blobstorage")]
+            Stream videoStream,
         string analysisRequestFileName
     )
     {

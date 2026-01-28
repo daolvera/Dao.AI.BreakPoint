@@ -5,6 +5,7 @@ import {
   AnalysisResultDto,
 } from '../models/dtos/analysis.dto';
 import { TokenService } from './token.service';
+import { ConfigService } from './config.service';
 
 export interface SignalRConnectionState {
   connected: boolean;
@@ -17,6 +18,7 @@ export interface SignalRConnectionState {
 export class SignalRService {
   private connection: any = null;
   private tokenService = inject(TokenService);
+  private configService = inject(ConfigService);
   private ngZone = inject(NgZone);
 
   public connectionState = signal<SignalRConnectionState>({ connected: false });
@@ -41,7 +43,7 @@ export class SignalRService {
       const signalR = await import('@microsoft/signalr');
 
       this.connection = new signalR.HubConnectionBuilder()
-        .withUrl('/api/hubs/analysis', {
+        .withUrl(this.configService.getApiUrl('hubs/analysis'), {
           // Use arrow function to get fresh token on each request
           accessTokenFactory: () => this.tokenService.getAccessToken() ?? '',
         })
@@ -57,7 +59,7 @@ export class SignalRService {
           this.ngZone.run(() => {
             this.analysisStatusChanged$.next(request);
           });
-        }
+        },
       );
 
       this.connection.on(
@@ -66,7 +68,7 @@ export class SignalRService {
           this.ngZone.run(() => {
             this.analysisCompleted$.next(result);
           });
-        }
+        },
       );
 
       this.connection.on(
@@ -75,7 +77,7 @@ export class SignalRService {
           this.ngZone.run(() => {
             this.analysisFailed$.next({ analysisRequestId, errorMessage });
           });
-        }
+        },
       );
 
       this.connection.onclose((): void => {

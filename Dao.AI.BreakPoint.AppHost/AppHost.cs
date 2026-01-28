@@ -1,4 +1,10 @@
+using Aspire.Hosting.Azure.Storage;
+using Azure.Provisioning.Storage;
+
 var builder = DistributedApplication.CreateBuilder(args);
+
+// Add Azure Container App Environment to enable role assignments
+builder.AddAzureContainerAppEnvironment("breakpointenv");
 
 // Application Insights for telemetry
 var insights = builder.AddAzureApplicationInsights("appinsights");
@@ -33,6 +39,11 @@ var breakPointApi = builder
     .WithReference(insights)
     .WithReference(keyVault)
     .WithExternalHttpEndpoints() // Required for OAuth callbacks
+    .WithRoleAssignments(
+        storage,
+        StorageBuiltInRole.StorageBlobDataContributor,
+        StorageBuiltInRole.StorageBlobDataOwner
+    )
     .WithHttpHealthCheck("/health");
 
 // Azure Function (Swing Analyzer)
@@ -45,21 +56,32 @@ var analyzerFunction = builder
     .WithReference(blobStorage)
     .WithReference(insights)
     .WithReference(keyVault)
-    .WithReference(breakPointApi);
+    .WithReference(breakPointApi)
+    .WithRoleAssignments(
+        storage,
+        StorageBuiltInRole.StorageBlobDataContributor,
+        StorageBuiltInRole.StorageBlobDataReader
+    );
 
 // Frontend App
 var breakPointApp = builder
     .AddJavaScriptApp("breakpoint", "../Dao.AI.BreakPoint.Web", "start")
     .WithReference(breakPointApi)
     .WaitFor(breakPointApi)
-    .WithHttpEndpoint(port: 3000, env: "PORT")
+    .WithHttpEndpoint(targetPort: 3000, env: "PORT")
     .WithExternalHttpEndpoints()
     .WithNpm(installCommand: "ci")
     .PublishAsDockerFile()
     .WithHttpHealthCheck("/health");
 
-var frontendHttpEndpoint = breakPointApp.GetEndpoint("http");
-
-breakPointApi.WithEnvironment("BreakPointAppUrl", frontendHttpEndpoint);
+if (!string.IsNullOrWhiteSpace(builder.Configuration["BreakPointBaseUrl"]))
+{
+    breakPointApi.WithEnvironment("BreakPointAppUrl", builder.Configuration["BreakPointBaseUrl"]);
+}
+else
+{
+    var frontendHttpEndpoint = breakPointApp.GetEndpoint("http");
+    breakPointApi.WithEnvironment("BreakPointAppUrl", frontendHttpEndpoint);
+}
 
 builder.Build().Run();
