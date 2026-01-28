@@ -46,16 +46,22 @@ jobs:
 
 
       - name: Provision Infrastructure
-        run: azd provision --no-prompt
+        run: |
+          azd provision --no-prompt `
+            --set breakpointCustomDomain="${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}" `
+            --set breakpointCertificateName="${{ vars.BREAKPOINT_CERTIFICATE_NAME }}" `
+            --set apiCustomDomain="${{ vars.API_CUSTOM_DOMAIN }}" `
+            --set apiCertificateName="${{ vars.API_CERTIFICATE_NAME }}"
         env:
           AZURE_POSTGRES_PASSWORD: ${{ secrets.AZURE_POSTGRES_PASSWORD }}
-          breakpointCustomDomain: ${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}
-          breakpointCertificateName: ${{ vars.BREAKPOINT_CERTIFICATE_NAME }}
-          apiCustomDomain: ${{ vars.API_CUSTOM_DOMAIN }}
-          apiCertificateName: ${{ vars.API_CERTIFICATE_NAME }}
 
       - name: Deploy Application
-        run: azd deploy --no-prompt
+        run: |
+          azd deploy --no-prompt `
+            --set breakpointCustomDomain="${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}" `
+            --set breakpointCertificateName="${{ vars.BREAKPOINT_CERTIFICATE_NAME }}" `
+            --set apiCustomDomain="${{ vars.API_CUSTOM_DOMAIN }}" `
+            --set apiCertificateName="${{ vars.API_CERTIFICATE_NAME }}"
         env:
           AZURE_POSTGRES_PASSWORD: ${{ secrets.AZURE_POSTGRES_PASSWORD }}
         
