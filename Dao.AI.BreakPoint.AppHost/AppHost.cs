@@ -1,4 +1,3 @@
-using Aspire.Hosting.Azure.Storage;
 using Azure.Provisioning.Storage;
 
 var builder = DistributedApplication.CreateBuilder(args);
@@ -61,7 +60,8 @@ var analyzerFunction = builder
         storage,
         StorageBuiltInRole.StorageBlobDataContributor,
         StorageBuiltInRole.StorageBlobDataReader
-    );
+    )
+    .WithEnvironment("AzureWebJobsSecretStorageType", "files");
 
 // Frontend App
 var breakPointApp = builder
