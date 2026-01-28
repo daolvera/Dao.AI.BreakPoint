@@ -1,6 +1,10 @@
 using Azure.Provisioning.Storage;
 
 var builder = DistributedApplication.CreateBuilder(args);
+var breakpointCustomDomain = builder.AddParameter("breakpointCustomDomain", secret: false);
+var breakpointCertificateName = builder.AddParameter("breakpointCertificateName", secret: false);
+var apiCustomDomain = builder.AddParameter("apiCustomDomain", secret: false);
+var apiCertificateName = builder.AddParameter("apiCertificateName", secret: false);
 
 // Add Azure Container App Environment to enable role assignments
 builder.AddAzureContainerAppEnvironment("breakpointenv");
