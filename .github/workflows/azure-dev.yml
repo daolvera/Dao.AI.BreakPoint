@@ -13,7 +13,6 @@ permissions:
   id-token: write
   contents: read
 
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -26,8 +25,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Install azd
         uses: Azure/setup-azd@v2
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -44,22 +45,14 @@ jobs:
             --tenant-id "$Env:AZURE_TENANT_ID"
         shell: pwsh
 
-
       - name: Provision Infrastructure
         run: azd provision --no-prompt
-        env:
-          AZURE_POSTGRES_PASSWORD: ${{ secrets.AZURE_POSTGRES_PASSWORD }}
-          breakpointCustomDomain: ${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}
-          breakpointCertificateName: ${{ vars.BREAKPOINT_CERTIFICATE_NAME }}
-          apiCustomDomain: ${{ vars.API_CUSTOM_DOMAIN }}
-          apiCertificateName: ${{ vars.API_CERTIFICATE_NAME }}
 
       - name: Deploy Application
         run: azd deploy --no-prompt
         env:
-          AZURE_POSTGRES_PASSWORD: ${{ secrets.AZURE_POSTGRES_PASSWORD }}
-          breakpointCustomDomain: ${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}
-          breakpointCertificateName: ${{ vars.BREAKPOINT_CERTIFICATE_NAME }}
-          apiCustomDomain: ${{ vars.API_CUSTOM_DOMAIN }}
-          apiCertificateName: ${{ vars.API_CERTIFICATE_NAME }}
+          BREAKPOINT_CUSTOM_DOMAIN: ${{ vars.BREAKPOINT_CUSTOM_DOMAIN }}
+          BREAKPOINT_CERTIFICATE_NAME: ${{ vars.BREAKPOINT_CERTIFICATE_NAME }}
+          API_CUSTOM_DOMAIN: ${{ vars.API_CUSTOM_DOMAIN }}
+          API_CERTIFICATE_NAME: ${{ vars.API_CERTIFICATE_NAME }}
         
