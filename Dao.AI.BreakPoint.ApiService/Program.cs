@@ -13,7 +13,6 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
     // Clear known networks/proxies to trust all proxies (needed for Azure Container Apps)
-    options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
@@ -58,7 +57,8 @@ builder.Services.AddAnalysisServices();
 builder.Services.AddAzureOpenAIServices(builder.Configuration);
 
 // Configure Azure Blob Storage using Aspire extension
-builder.AddAzureBlobServiceClient("BlobStorage");
+// Connection name must match the Aspire resource name defined in AppHost ("blobstorage")
+builder.AddAzureBlobServiceClient("blobstorage");
 builder.Services.AddAspirerBlobStorage();
 
 // Add SignalR

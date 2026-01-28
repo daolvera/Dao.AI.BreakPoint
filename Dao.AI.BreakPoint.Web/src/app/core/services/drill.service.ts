@@ -5,26 +5,27 @@ import {
   DrillFeedbackRequest,
   DrillRecommendationDto,
 } from '../models/dtos/analysis.dto';
+import { ConfigService } from './config.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class DrillService {
   private http = inject(HttpClient);
-  private baseUrl = '/api/drills';
+  private config = inject(ConfigService);
 
   /**
    * Get all drill recommendations for a player
    */
   getPlayerDrills(
     playerId: number,
-    activeOnly = true
+    activeOnly = true,
   ): Observable<DrillRecommendationDto[]> {
     return this.http.get<DrillRecommendationDto[]>(
-      `${this.baseUrl}/player/${playerId}`,
+      this.config.getApiUrl(`drills/player/${playerId}`),
       {
         params: { activeOnly: activeOnly.toString() },
-      }
+      },
     );
   }
 
@@ -32,10 +33,10 @@ export class DrillService {
    * Get drill recommendations for a specific analysis result
    */
   getAnalysisDrills(
-    analysisResultId: number
+    analysisResultId: number,
   ): Observable<DrillRecommendationDto[]> {
     return this.http.get<DrillRecommendationDto[]>(
-      `${this.baseUrl}/analysis/${analysisResultId}`
+      this.config.getApiUrl(`drills/analysis/${analysisResultId}`),
     );
   }
 
@@ -43,7 +44,9 @@ export class DrillService {
    * Get a specific drill recommendation
    */
   getDrill(id: number): Observable<DrillRecommendationDto> {
-    return this.http.get<DrillRecommendationDto>(`${this.baseUrl}/${id}`);
+    return this.http.get<DrillRecommendationDto>(
+      this.config.getApiUrl(`drills/${id}`),
+    );
   }
 
   /**
@@ -51,8 +54,8 @@ export class DrillService {
    */
   completeDrill(id: number): Observable<DrillRecommendationDto> {
     return this.http.post<DrillRecommendationDto>(
-      `${this.baseUrl}/${id}/complete`,
-      {}
+      this.config.getApiUrl(`drills/${id}/complete`),
+      {},
     );
   }
 
@@ -61,11 +64,11 @@ export class DrillService {
    */
   submitFeedback(
     id: number,
-    feedback: DrillFeedbackRequest
+    feedback: DrillFeedbackRequest,
   ): Observable<DrillRecommendationDto> {
     return this.http.post<DrillRecommendationDto>(
-      `${this.baseUrl}/${id}/feedback`,
-      feedback
+      this.config.getApiUrl(`drills/${id}/feedback`),
+      feedback,
     );
   }
 
@@ -73,7 +76,10 @@ export class DrillService {
    * Dismiss/deactivate a drill recommendation
    */
   dismissDrill(id: number): Observable<void> {
-    return this.http.post<void>(`${this.baseUrl}/${id}/dismiss`, {});
+    return this.http.post<void>(
+      this.config.getApiUrl(`drills/${id}/dismiss`),
+      {},
+    );
   }
 
   /**
@@ -81,13 +87,13 @@ export class DrillService {
    */
   getDrillHistory(
     playerId: number,
-    limit = 20
+    limit = 20,
   ): Observable<DrillRecommendationDto[]> {
     return this.http.get<DrillRecommendationDto[]>(
-      `${this.baseUrl}/player/${playerId}/history`,
+      this.config.getApiUrl(`drills/player/${playerId}/history`),
       {
         params: { limit: limit.toString() },
-      }
+      },
     );
   }
 }

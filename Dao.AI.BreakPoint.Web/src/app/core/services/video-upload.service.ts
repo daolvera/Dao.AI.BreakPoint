@@ -7,12 +7,14 @@ import {
 import { Observable, throwError } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
 import { VideoUploadResult, VideoValidationResult } from '../models/dtos';
+import { ConfigService } from './config.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class VideoUploadService {
   private http = inject(HttpClient);
+  private config = inject(ConfigService);
 
   // Allowed video types
   private readonly allowedVideoTypes = [
@@ -39,7 +41,7 @@ export class VideoUploadService {
         resolve({
           isValid: false,
           error: `Invalid video type. Allowed types: ${this.allowedVideoTypes.join(
-            ', '
+            ', ',
           )}`,
         });
         return;
@@ -50,7 +52,7 @@ export class VideoUploadService {
         resolve({
           isValid: false,
           error: `File size too large. Maximum size is ${Math.round(
-            this.maxFileSize / (1024 * 1024)
+            this.maxFileSize / (1024 * 1024),
           )}MB`,
         });
         return;
@@ -91,17 +93,21 @@ export class VideoUploadService {
    */
   public uploadPlayerVideo(
     playerId: number,
-    file: File
+    file: File,
   ): Observable<VideoUploadResult> {
     const formData = new FormData();
     formData.append('video', file);
     formData.append('playerId', playerId.toString());
 
     return this.http
-      .post<VideoUploadResult>(`api/players/${playerId}/videos`, formData, {
-        reportProgress: true,
-        observe: 'events',
-      })
+      .post<VideoUploadResult>(
+        this.config.getApiUrl(`players/${playerId}/videos`),
+        formData,
+        {
+          reportProgress: true,
+          observe: 'events',
+        },
+      )
       .pipe(
         map((event) => {
           if (event.type === HttpEventType.Response) {
@@ -116,7 +122,7 @@ export class VideoUploadService {
             success: false,
             message: 'Failed to upload video. Please try again.',
           }));
-        })
+        }),
       );
   }
 

@@ -8,12 +8,14 @@ import {
   AnalysisResultSummaryDto,
 } from '../models/dtos/analysis.dto';
 import { SwingType } from '../models/enums/swing-type.enum';
+import { ConfigService } from './config.service';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AnalysisService {
   private http = inject(HttpClient);
+  private config = inject(ConfigService);
 
   // Signal-based state for reactive UI
   public currentRequest = signal<AnalysisRequestDto | null>(null);
@@ -28,7 +30,7 @@ export class AnalysisService {
   uploadVideo(
     video: File,
     playerId: number,
-    strokeType: SwingType
+    strokeType: SwingType,
   ): Observable<AnalysisRequestDto> {
     const formData = new FormData();
     formData.append('video', video);
@@ -37,8 +39,10 @@ export class AnalysisService {
 
     return this.http
       .post<AnalysisRequestDto>(
-        `api/Analysis/upload?playerId=${playerId}&strokeType=${strokeType}`,
-        formData
+        this.config.getApiUrl(
+          `Analysis/upload?playerId=${playerId}&strokeType=${strokeType}`,
+        ),
+        formData,
       )
       .pipe(
         tap({
@@ -48,7 +52,7 @@ export class AnalysisService {
             this.pendingRequests.update((requests) => [result, ...requests]);
           },
           finalize: () => this.isLoading.set(false),
-        })
+        }),
       );
   }
 
@@ -57,7 +61,7 @@ export class AnalysisService {
    */
   getRequest(id: number): Observable<AnalysisRequestDto> {
     return this.http
-      .get<AnalysisRequestDto>(`api/Analysis/request/${id}`)
+      .get<AnalysisRequestDto>(this.config.getApiUrl(`Analysis/request/${id}`))
       .pipe(tap((result) => this.currentRequest.set(result)));
   }
 
@@ -66,7 +70,7 @@ export class AnalysisService {
    */
   getResult(id: number): Observable<AnalysisResultDto> {
     return this.http
-      .get<AnalysisResultDto>(`api/Analysis/result/${id}`)
+      .get<AnalysisResultDto>(this.config.getApiUrl(`Analysis/result/${id}`))
       .pipe(tap((result) => this.currentResult.set(result)));
   }
 
@@ -75,7 +79,9 @@ export class AnalysisService {
    */
   getPendingRequests(playerId: number): Observable<AnalysisRequestDto[]> {
     return this.http
-      .get<AnalysisRequestDto[]>(`api/Analysis/player/${playerId}/pending`)
+      .get<
+        AnalysisRequestDto[]
+      >(this.config.getApiUrl(`Analysis/player/${playerId}/pending`))
       .pipe(tap((results) => this.pendingRequests.set(results)));
   }
 
@@ -85,14 +91,14 @@ export class AnalysisService {
   getResultHistory(
     playerId: number,
     page = 1,
-    pageSize = 10
+    pageSize = 10,
   ): Observable<AnalysisResultSummaryDto[]> {
     return this.http
       .get<AnalysisResultSummaryDto[]>(
-        `api/Analysis/player/${playerId}/history`,
+        this.config.getApiUrl(`Analysis/player/${playerId}/history`),
         {
           params: { page: page.toString(), pageSize: pageSize.toString() },
-        }
+        },
       )
       .pipe(
         tap((results) => {
@@ -101,7 +107,7 @@ export class AnalysisService {
           } else {
             this.resultHistory.update((history) => [...history, ...results]);
           }
-        })
+        }),
       );
   }
 
@@ -109,15 +115,15 @@ export class AnalysisService {
    * Delete an analysis request
    */
   deleteRequest(id: number): Observable<void> {
-    return this.http.delete<void>(`api/Analysis/${id}`).pipe(
+    return this.http.delete<void>(this.config.getApiUrl(`Analysis/${id}`)).pipe(
       tap(() => {
         this.pendingRequests.update((requests) =>
-          requests.filter((r) => r.id !== id)
+          requests.filter((r) => r.id !== id),
         );
         if (this.currentRequest()?.id === id) {
           this.currentRequest.set(null);
         }
-      })
+      }),
     );
   }
 
@@ -129,7 +135,7 @@ export class AnalysisService {
 
     // Update in pending requests if exists
     this.pendingRequests.update((requests) =>
-      requests.map((r) => (r.id === request.id ? request : r))
+      requests.map((r) => (r.id === request.id ? request : r)),
     );
   }
 
@@ -143,7 +149,7 @@ export class AnalysisService {
 
     // Remove from pending requests
     this.pendingRequests.update((requests) =>
-      requests.filter((r) => r.id !== result.analysisRequestId)
+      requests.filter((r) => r.id !== result.analysisRequestId),
     );
 
     // Add to result history
