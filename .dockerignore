@@ -32,8 +32,6 @@
 .azure/
 .github/
 
-# Models (large files - will be downloaded separately in production)
-**/*.onnx
 
 # Training data
 **/data/
