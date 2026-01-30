@@ -12,6 +12,12 @@ COPY ["Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.cspro
 # Restore dependencies
 RUN dotnet restore "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
 
+# Copy all source code
+COPY ["Dao.AI.BreakPoint.AnalyzerFunction/", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
+COPY ["Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
+COPY ["Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
+
 # Build and publish
 RUN dotnet publish "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj" \
     -c $BUILD_CONFIGURATION \
