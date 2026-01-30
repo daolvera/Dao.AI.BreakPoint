@@ -2,11 +2,14 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Copy solution and project files
+# Copy project files for restore
 COPY ["Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
 COPY ["Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
 COPY ["Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
 COPY ["Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj", "Dao.AI.BreakPoint.ServiceDefaults/"]
+
+# Copy ML models directory (referenced by csproj as Content)
+COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
 
 # Restore dependencies
 RUN dotnet restore "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
@@ -49,10 +52,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for Azure Functions
-ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
-    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
-    # Ensure OpenCV can find its native libraries
-    LD_LIBRARY_PATH=/home/site/wwwroot/runtimes/linux-x64/native:$LD_LIBRARY_PATH
+ENV AzureWebJobsScriptRoot=/home/site/wwwroot
+ENV AzureFunctionsJobHost__Logging__Console__IsEnabled=true
+# Ensure OpenCV can find its native libraries
+ENV LD_LIBRARY_PATH=/home/site/wwwroot/runtimes/linux-x64/native:/usr/lib/x86_64-linux-gnu
 
 WORKDIR /home/site/wwwroot
 COPY --from=publish /app/publish .
