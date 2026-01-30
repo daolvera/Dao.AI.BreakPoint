@@ -20,6 +20,9 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 builder.AddServiceDefaults();
 builder.Services.AddProblemDetails();
 
+// Add rate limiting
+builder.Services.AddBreakPointRateLimiting();
+
 // Add Azure Key Vault secrets as configuration provider (Aspire extension)
 builder.Configuration.AddAzureKeyVaultSecrets("keyvault");
 
@@ -76,6 +79,9 @@ var app = builder.Build();
 
 // Use forwarded headers - must be first middleware
 app.UseForwardedHeaders();
+
+// Rate limiting - placed early to protect against abuse
+app.UseRateLimiter();
 
 app.UseExceptionHandler();
 

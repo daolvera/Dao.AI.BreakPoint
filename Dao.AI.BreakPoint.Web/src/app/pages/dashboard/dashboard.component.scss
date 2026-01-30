@@ -27,6 +27,11 @@
 
 .upload-dialog {
   animation: slideUp 0.3s ease-out;
+  max-height: calc(100vh - 4rem);
+  overflow-y: auto;
+  
+  // Ensure smooth scrolling on mobile
+  -webkit-overflow-scrolling: touch;
 }
 
 @keyframes fadeIn {

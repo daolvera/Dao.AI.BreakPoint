@@ -61,7 +61,9 @@ var analyzerFunction = builder
         StorageBuiltInRole.StorageBlobDataContributor,
         StorageBuiltInRole.StorageBlobDataReader
     )
-    .WithEnvironment("AzureWebJobsSecretStorageType", "files");
+    .WithEnvironment("AzureWebJobsSecretStorageType", "files")
+    .PublishAsDockerFile()
+    .WithHttpHealthCheck("/health");
 
 // Frontend App
 var breakPointApp = builder
