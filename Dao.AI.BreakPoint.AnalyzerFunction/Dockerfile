@@ -3,21 +3,21 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy project files for restore (paths relative to AnalyzerFunction directory)
-COPY ["Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
-COPY ["../Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
-COPY ["../Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
-COPY ["../Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj", "Dao.AI.BreakPoint.ServiceDefaults/"]
+# Copy project files for restore
+COPY ["Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
+COPY ["Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
+COPY ["Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj", "Dao.AI.BreakPoint.ServiceDefaults/"]
 
 # Restore dependencies
 RUN dotnet restore "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
 
 # Copy all source code
-COPY [".", "Dao.AI.BreakPoint.AnalyzerFunction/"]
-COPY ["../Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
-COPY ["../Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
-COPY ["../Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
-COPY ["../Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
+COPY ["Dao.AI.BreakPoint.AnalyzerFunction/", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
+COPY ["Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
+COPY ["Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
+COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
 
 # Build and publish
 RUN dotnet publish "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj" \
