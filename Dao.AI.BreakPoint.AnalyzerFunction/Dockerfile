@@ -3,28 +3,27 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy all project files for restore (paths relative to solution root)
-COPY ["Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
-COPY ["Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
-COPY ["Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
-COPY ["Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj", "Dao.AI.BreakPoint.ServiceDefaults/"]
-
-# Copy ML models directory (referenced by csproj as Content)
-COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
+# Copy project files for restore (paths relative to AnalyzerFunction directory)
+COPY ["Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["../Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
+COPY ["../Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
+COPY ["../Dao.AI.BreakPoint.ServiceDefaults/Dao.AI.BreakPoint.ServiceDefaults.csproj", "Dao.AI.BreakPoint.ServiceDefaults/"]
 
 # Restore dependencies
 RUN dotnet restore "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
 
 # Copy all source code
-COPY ["Dao.AI.BreakPoint.AnalyzerFunction/", "Dao.AI.BreakPoint.AnalyzerFunction/"]
-COPY ["Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
-COPY ["Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
-COPY ["Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
-COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
+COPY [".", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["../Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
+COPY ["../Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
+COPY ["../Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
+COPY ["../Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
 
-# Publish the project
-WORKDIR "/src/Dao.AI.BreakPoint.AnalyzerFunction"
-RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+# Build and publish
+RUN dotnet publish "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj" \
+    -c $BUILD_CONFIGURATION \
+    -o /app/publish \
+    /p:UseAppHost=false
 
 # Runtime stage - Azure Functions base image
 FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0 AS runtime
