@@ -1,8 +1,9 @@
 # Build stage
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Copy project files for restore
+# Copy all project files for restore (paths relative to solution root)
 COPY ["Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj", "Dao.AI.BreakPoint.AnalyzerFunction/"]
 COPY ["Dao.AI.BreakPoint.Data/Dao.AI.BreakPoint.Data.csproj", "Dao.AI.BreakPoint.Data/"]
 COPY ["Dao.AI.BreakPoint.Services/Dao.AI.BreakPoint.Services.csproj", "Dao.AI.BreakPoint.Services/"]
@@ -14,16 +15,21 @@ COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
 # Restore dependencies
 RUN dotnet restore "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
 
-# Copy source code
-COPY . .
+# Copy all source code
+COPY ["Dao.AI.BreakPoint.AnalyzerFunction/", "Dao.AI.BreakPoint.AnalyzerFunction/"]
+COPY ["Dao.AI.BreakPoint.Data/", "Dao.AI.BreakPoint.Data/"]
+COPY ["Dao.AI.BreakPoint.Services/", "Dao.AI.BreakPoint.Services/"]
+COPY ["Dao.AI.BreakPoint.ServiceDefaults/", "Dao.AI.BreakPoint.ServiceDefaults/"]
+COPY ["Dao.AI.BreakPoint.Models/", "Dao.AI.BreakPoint.Models/"]
 
 # Build the project
 WORKDIR "/src/Dao.AI.BreakPoint.AnalyzerFunction"
-RUN dotnet build -c Release -o /app/build
+RUN dotnet build -c $BUILD_CONFIGURATION -o /app/build
 
 # Publish stage
 FROM build AS publish
-RUN dotnet publish -c Release -o /app/publish /p:UseAppHost=false
+ARG BUILD_CONFIGURATION=Release
+RUN dotnet publish -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 # Runtime stage - Azure Functions base image
 FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0 AS final
@@ -37,10 +43,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     libfontconfig1 \
-    # Video/image processing dependencies
-    libavcodec59 \
-    libavformat59 \
-    libswscale6 \
+    # Video/image processing dependencies  
+    libavcodec60 \
+    libavformat60 \
+    libswscale7 \
     libv4l-0 \
     libatlas-base-dev \
     libgtk-3-0 \
