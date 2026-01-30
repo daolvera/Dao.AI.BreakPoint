@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <AzureFunctionsVersion>v4</AzureFunctionsVersion>
@@ -8,34 +7,44 @@
     <Nullable>enable</Nullable>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
   </PropertyGroup>
-
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Aspire.Azure.Security.KeyVault" Version="13.1.0" />
     <PackageReference Include="Aspire.Azure.Storage.Blobs" Version="13.1.0" />
     <PackageReference Include="Microsoft.ApplicationInsights.WorkerService" Version="2.23.0" />
     <PackageReference Include="Microsoft.Azure.Functions.Worker" Version="2.51.0" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.ApplicationInsights" Version="2.50.0" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore" Version="2.1.0" />
-    <PackageReference Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs" Version="6.8.0" />
+    <PackageReference
+      Include="Microsoft.Azure.Functions.Worker.ApplicationInsights"
+      Version="2.50.0"
+    />
+    <PackageReference
+      Include="Microsoft.Azure.Functions.Worker.Extensions.Http.AspNetCore"
+      Version="2.1.0"
+    />
+    <PackageReference
+      Include="Microsoft.Azure.Functions.Worker.Extensions.Storage.Blobs"
+      Version="6.8.0"
+    />
     <PackageReference Include="Microsoft.Azure.Functions.Worker.Sdk" Version="2.0.7" />
+    <PackageReference Include="OpenCvSharp4" Version="4.11.0.20250507" />
     <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.11.0.20250507" />
     <PackageReference Include="OpenCvSharp4.official.runtime.linux-x64" Version="4.11.0.20250507" />
   </ItemGroup>
-
+  <!-- Ensure OpenCV native libraries are copied to output -->
+  <PropertyGroup>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dao.AI.BreakPoint.Data\Dao.AI.BreakPoint.Data.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.ServiceDefaults\Dao.AI.BreakPoint.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Dao.AI.BreakPoint.Services\Dao.AI.BreakPoint.Services.csproj" />
   </ItemGroup>
-
   <!-- Include ONNX models as content files for deployment -->
   <ItemGroup>
     <Content Include="..\Dao.AI.BreakPoint.Models\*" Link="models\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
-
   <!-- Ensure local.settings.json is copied to output -->
   <ItemGroup>
     <None Update="local.settings.json">
@@ -46,5 +55,4 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
-
 </Project>
