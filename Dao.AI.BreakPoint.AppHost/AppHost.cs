@@ -62,7 +62,11 @@ var analyzerFunction = builder
         StorageBuiltInRole.StorageBlobDataReader
     )
     .WithEnvironment("AzureWebJobsSecretStorageType", "files")
-    .PublishAsDockerFile()
+    .PublishAsDockerFile(options =>
+    {
+        // Set build context to repository root so Dockerfile can access sibling projects
+        options.BuildContext = "../";
+    })
     .WithHttpHealthCheck("/health");
 
 // Frontend App
