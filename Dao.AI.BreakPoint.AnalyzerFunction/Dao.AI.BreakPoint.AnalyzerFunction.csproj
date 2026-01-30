@@ -43,6 +43,7 @@
   <ItemGroup>
     <Content Include="..\Dao.AI.BreakPoint.Models\*" Link="models\%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
   </ItemGroup>
   <!-- Ensure local.settings.json is copied to output -->
