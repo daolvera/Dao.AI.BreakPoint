@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Dao.AI.BreakPoint.ApiService.Configuration;
 using Dao.AI.BreakPoint.ApiService.Utilities;
 using Dao.AI.BreakPoint.Data.Models;
 using Dao.AI.BreakPoint.Services;
@@ -13,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Protocols.Configuration;
 
 namespace Dao.AI.BreakPoint.ApiService.Controllers;
@@ -66,6 +68,7 @@ public class AuthController(
     }
 
     [HttpGet("refresh")]
+    [EnableRateLimiting(RateLimitingConfiguration.AnonymousPolicy)]
     public async Task<IActionResult> RefreshToken()
     {
         var refreshToken = Request.Cookies[CodeLookUps.RefreshTokenCookieKey];
@@ -96,6 +99,7 @@ public class AuthController(
     }
 
     [HttpGet("challenge")]
+    [EnableRateLimiting(RateLimitingConfiguration.AnonymousPolicy)]
     [EndpointDescription("Handle the external provider callback to complete authentication")]
     public async Task<IActionResult> HandleChallenge()
     {
@@ -149,6 +153,7 @@ public class AuthController(
 
     #region Google Login
     [HttpGet("google")]
+    [EnableRateLimiting(RateLimitingConfiguration.AnonymousPolicy)]
     [EndpointDescription("Begins the login using Google as the provided OAuth External Provider")]
     public ChallengeResult BeginGoogleLogin()
     {
