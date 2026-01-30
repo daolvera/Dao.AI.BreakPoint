@@ -26,7 +26,7 @@ RUN dotnet publish "Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.Analyze
     /p:UseAppHost=false
 
 # Runtime stage - Azure Functions base image
-FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0 AS final
+FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0 AS runtime
 
 # Install OpenCV dependencies
 # These are required for OpenCvSharp to load native libraries
@@ -58,7 +58,7 @@ ENV AzureFunctionsJobHost__Logging__Console__IsEnabled=true
 ENV LD_LIBRARY_PATH=/home/site/wwwroot/runtimes/linux-x64/native:/usr/lib/x86_64-linux-gnu
 
 WORKDIR /home/site/wwwroot
-COPY --from=publish /app/publish .
+COPY --from=build /app/publish .
 
 # Expose port for health checks
 EXPOSE 80
