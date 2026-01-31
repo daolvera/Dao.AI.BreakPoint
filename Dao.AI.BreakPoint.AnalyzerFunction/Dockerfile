@@ -22,24 +22,36 @@ RUN dotnet publish -c Release -o /app/publish
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
-# Install OpenCV native dependencies for Linux
+# Install OpenCV 4 native libraries and all dependencies for OpenCvSharp
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Core dependencies
     libgdiplus \
     libc6-dev \
     libgomp1 \
+    # OpenCV 4 native libraries (required by OpenCvSharpExtern.so)
+    libopencv-dev \
+    # Tesseract OCR (required dependency)
+    libtesseract-dev \
+    tesseract-ocr \
+    # Image format libraries
+    libjpeg62-turbo \
+    libpng16-16 \
+    libtiff6 \
+    libwebp7 \
+    libopenjp2-7 \
+    # Video codec libraries
+    libavcodec60 \
+    libavformat60 \
+    libswscale7 \
+    libavutil58 \
+    # Additional dependencies
     libatlas-base-dev \
-    libgtk2.0-0 \
-    libdc1394-dev \
-    libjpeg-dev \
-    libpng-dev \
-    libtiff-dev \
-    libavcodec-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libv4l-dev \
-    libxvidcore-dev \
-    libx264-dev \
+    liblapack3 \
+    libhdf5-103-1 \
     && rm -rf /var/lib/apt/lists/*
+
+# Set library path to help find OpenCV libraries
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 
 # Copy published app
 COPY --from=build /app/publish .
