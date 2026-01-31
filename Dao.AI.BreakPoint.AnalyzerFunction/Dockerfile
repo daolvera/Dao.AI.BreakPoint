@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS installer-env
 
-COPY . /src/dotnet-function-app
-RUN cd /src/dotnet-function-app && \
+COPY . /src/
+RUN cd /src/Dao.AI.BreakPoint.AnalyzerFunction && \
 mkdir -p /home/site/wwwroot && \
 dotnet publish *.csproj --output /home/site/wwwroot
 
@@ -20,10 +20,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstdc++6 \
     libunwind8 \
     # General image processing dependencies
-    libjpeg62-turbo \
-    libpng16-16 \
-    libtiff6 \
-    libwebp7 \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    libwebp-dev \
     # Additional dependencies for native interop
     libatomic1 \
     && rm -rf /var/lib/apt/lists/*
