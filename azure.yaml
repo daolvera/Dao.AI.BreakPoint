@@ -8,6 +8,9 @@ services:
     host: containerapp
 
 hooks:
+  prepackage:
+    shell: pwsh
+    run: ./infra/hooks/prepackage.ps1
   postdeploy:
     shell: pwsh
     run: ./infra/hooks/postdeploy.ps1
