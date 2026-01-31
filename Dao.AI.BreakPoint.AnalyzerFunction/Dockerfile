@@ -29,19 +29,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
-# Debug: List contents before COPY
-RUN echo "=== Contents of /src BEFORE COPY ===" && ls -la /src || echo "Directory empty or does not exist"
-
 COPY . .
-
-# Debug: List contents after COPY
-RUN echo "=== Contents of /src AFTER COPY ===" && ls -la /src
-RUN echo "=== Looking for .csproj files ===" && find /src -name "*.csproj" -type f 2>/dev/null || echo "No .csproj files found"
-RUN echo "=== Contents of AnalyzerFunction directory ===" && ls -la /src/Dao.AI.BreakPoint.AnalyzerFunction || echo "Directory does not exist"
-
-RUN dotnet restore "./Dao.AI.BreakPoint.AnalyzerFunction/Dao.AI.BreakPoint.AnalyzerFunction.csproj"
-COPY . .
-WORKDIR "/src/Dao.AI.BreakPoint.AnalyzerFunction"
+RUN dotnet restore "./Dao.AI.BreakPoint.AnalyzerFunction.csproj"
 RUN dotnet build "./Dao.AI.BreakPoint.AnalyzerFunction.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # This stage is used to publish the service project to be copied to the final stage
