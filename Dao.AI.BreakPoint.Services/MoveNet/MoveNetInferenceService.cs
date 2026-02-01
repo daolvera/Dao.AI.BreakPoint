@@ -1,4 +1,4 @@
-﻿using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using Dao.AI.BreakPoint.Services.SwingAnalyzer;
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using System.Numerics;
@@ -14,7 +14,7 @@ public class MoveNetInferenceService : IDisposable, IPoseInferenceService
 
     public MoveNetInferenceService(string modelPath, IImageProcessor? imageProcessor = null)
     {
-        _imageProcessor = imageProcessor ?? new ImageProcessor();
+        _imageProcessor = imageProcessor ?? new OpenCVImageProcessor();
 
         if (!File.Exists(modelPath))
         {

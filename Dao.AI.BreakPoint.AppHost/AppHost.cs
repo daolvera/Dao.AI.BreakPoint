@@ -62,7 +62,6 @@ var analyzerFunction = builder
         StorageBuiltInRole.StorageBlobDataReader
     )
     .WithEnvironment("AzureWebJobsSecretStorageType", "files")
-    .PublishAsDockerFile()
     .WithHttpHealthCheck("/health");
 
 // Frontend App

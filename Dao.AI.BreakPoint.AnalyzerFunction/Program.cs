@@ -1,6 +1,7 @@
 using Dao.AI.BreakPoint.Data;
 using Dao.AI.BreakPoint.Services;
 using Dao.AI.BreakPoint.Services.VideoProcessing;
+using FFMpegCore;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Extensions.Configuration;
@@ -29,8 +30,21 @@ builder.AddNpgsqlDbContext<BreakPointDbContext>("BreakPointDb");
 // Configure Azure Blob Storage using Aspire extension
 builder.AddAzureBlobServiceClient("blobstorage");
 
-// Register video processing service
-builder.Services.AddSingleton<IVideoProcessingService, OpenCvVideoProcessingService>();
+// Register video processing service based on environment
+if (OperatingSystem.IsWindows())
+{
+    // Use OpenCV for local Windows development
+    builder.Services.AddSingleton<IVideoProcessingService, OpenCvVideoProcessingService>();
+}
+else if (OperatingSystem.IsLinux())
+{
+    // Use FFmpeg for Linux Azure Functions (production)
+    GlobalFFOptions.Configure(options =>
+    {
+        options.BinaryFolder = Path.Combine(AppContext.BaseDirectory, "ffmpeg", "ffmpeg-7.0.2-amd64-static");
+    });
+    builder.Services.AddSingleton<IVideoProcessingService, FFmpegVideoProcessingService>();
+}
 
 builder.Services.AddAspirerBlobStorage();
 

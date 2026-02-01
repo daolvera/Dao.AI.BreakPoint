@@ -1,6 +1,6 @@
-using System.Numerics;
 using Dao.AI.BreakPoint.Data.Enums;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
+using System.Numerics;
 
 namespace Dao.AI.BreakPoint.Services.MoveNet;
 
@@ -34,7 +34,7 @@ public partial class MoveNetVideoProcessor(string moveNetModelPath, string phase
     };
     public static int NumKeyPoints => KeypointDict.Count;
 
-    private readonly MoveNetInferenceService _inferenceService = new(moveNetModelPath);
+    private readonly MoveNetInferenceService _inferenceService = new(moveNetModelPath, new ImageSharpImageProcessor());
     private readonly SwingPhaseClassifierService _phaseClassifier = new(phaseClassifierModelPath);
     private const float MinCropKeypointScore = 0.2f;
     private const float MinPhaseConfidence = 0.6f;

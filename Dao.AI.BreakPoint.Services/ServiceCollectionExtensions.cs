@@ -1,4 +1,4 @@
-﻿using Azure.Storage.Blobs;
+using Azure.Storage.Blobs;
 using Dao.AI.BreakPoint.Services.Options;
 using Dao.AI.BreakPoint.Services.Repositories;
 using Dao.AI.BreakPoint.Services.SwingAnalyzer;
@@ -74,8 +74,7 @@ public static class ServiceCollectionExtensions
 
         // Configure Coaching options
         services.Configure<CoachingOptions>(configuration.GetSection(CoachingOptions.SectionName));
-
-        services.AddSingleton<ISkeletonOverlayService, SkeletonOverlayService>();
+        services.AddSingleton<ISkeletonOverlayService, ImageSharpSkeletonOverlayService>();
         services.AddScoped<ISwingAnalyzerService, SwingAnalyzerService>();
         return services;
     }
